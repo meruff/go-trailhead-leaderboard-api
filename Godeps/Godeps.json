@@ -1,0 +1,6 @@
+{
+	"ImportPath": "github.com/meruff/go-trailhead-leaderboard-api",
+	"GoVersion": "go1.14",
+	"GodepVersion": "v80",
+	"Deps": []
+}
