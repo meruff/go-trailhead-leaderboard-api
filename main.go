@@ -27,13 +27,9 @@ type TrailheadData struct {
 	} `json:"actions"`
 }
 
-// Page refers to the literal Page we're doing to display
+// Page refers to the literal Page we're going to display
 type Page struct {
-	TrailheadData string
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-
+	Response string
 }
 
 func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
@@ -72,14 +68,14 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	defer res.Body.Close()
 
 	p := Page{trailheadData.Actions[0].ReturnValue.ReturnValue.Body}
-	js, err := json.Marshal(p)
+	pageData, err := json.Marshal(p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	w.Write(pageData)
 }
 
 func getTrailheadID(userAlias string) string {
@@ -93,19 +89,27 @@ func getTrailheadID(userAlias string) string {
 	if err != nil {
 		fmt.Println(err)
 	}
-	// fmt.Println(string(body)[strings.Index(string(body), "uid: '")+6 : strings.Index(string(body), "uid: '")+24])
 
 	return string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
 }
 
+func catchAllHandler(w http.ResponseWriter, r *http.Request) {
+	p := Page{"Please provide a valid Trialhead User Id or Name at /trailblazer/{id}"}
+	pageData, err := json.Marshal(p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(pageData)
+}
+
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/", indexHandler)
 	r.HandleFunc("/trailblazer/{id}", trailblazerHandler)
+	r.PathPrefix("/").HandlerFunc(catchAllHandler)
 	http.Handle("/", r)
-
-	// http.HandleFunc("/", indexHandler)
-	// http.HandleFunc("/trailblazer/{id}", trailblazerHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
