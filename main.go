@@ -27,11 +27,6 @@ type TrailheadData struct {
 	} `json:"actions"`
 }
 
-// Page refers to the literal Page we're going to display
-type Page struct {
-	Response string
-}
-
 func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["id"]
@@ -63,19 +58,11 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 
 	var trailheadData TrailheadData
 	json.Unmarshal(body, &trailheadData)
-	// fmt.Println(trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 
 	defer res.Body.Close()
 
-	p := Page{trailheadData.Actions[0].ReturnValue.ReturnValue.Body}
-	pageData, err := json.Marshal(p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(pageData)
+	w.Write([]byte(trailheadData.Actions[0].ReturnValue.ReturnValue.Body))
 }
 
 func getTrailheadID(userAlias string) string {
@@ -94,15 +81,8 @@ func getTrailheadID(userAlias string) string {
 }
 
 func catchAllHandler(w http.ResponseWriter, r *http.Request) {
-	p := Page{"Please provide a valid Trialhead User Id or Name at /trailblazer/{id}"}
-	pageData, err := json.Marshal(p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(pageData)
+	w.Write([]byte(`{"error":"Please provide a valid Trialhead User Id or Name at /trailblazer/{id}"}`))
 }
 
 func main() {
