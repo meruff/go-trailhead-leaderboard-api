@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "WrmZY60KZgbO/cYwOyAbylMfyCU=",
+			"path": "github.com/gorilla/mux",
+			"revision": "75dcda0896e109a2a22c9315bca3bb21b87b2ba5",
+			"revisionTime": "2020-01-12T19:17:43Z"
+		}
+	],
+	"rootPath": "github.com/meruff/go-trailhead-leaderboard-api"
+}
