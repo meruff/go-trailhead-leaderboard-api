@@ -30,13 +30,63 @@ type TrailheadData struct {
 func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["id"]
+
 	if !strings.HasPrefix(userID, "005") {
 		userID = getTrailheadID(userID)
 	}
+
+	writeTrailheadDataToPage(w, r, "message=%7B%22actions%22%3A%5B%7B%22id%22%3A%22105%3Ba%22%2C%22descriptor%22%3A%22aura%3A%2F%2FApexActionController%2FACTION%24execute%22%2C%22callingDescriptor%22%3A%22UNKNOWN%22%2C%22params%22%3A%7B%22namespace%22%3A%22%22%2C%22classname%22%3A%22TrailheadProfileService%22%2C%22method%22%3A%22fetchTrailheadData%22%2C%22params%22%3A%7B%22userId%22%3A%22"+userID+"%22%2C%22language%22%3A%22en-US%22%7D%2C%22cacheable%22%3Afalse%2C%22isContinuation%22%3Afalse%7D%7D%5D%7D&aura.context=%7B%22mode%22%3A%22PROD%22%2C%22fwuid%22%3A%22kHqYrsGCjDhXliyGcYtIfA%22%2C%22app%22%3A%22c%3AProfileApp%22%2C%22loaded%22%3A%7B%22APPLICATION%40markup%3A%2F%2Fc%3AProfileApp%22%3A%22ZoNFIdcxHaEP9RDPdsobUQ%22%7D%2C%22dn%22%3A%5B%5D%2C%22globals%22%3A%7B%22srcdoc%22%3Atrue%7D%2C%22uad%22%3Atrue%7D&aura.pageURI=%2Fid&aura.token=")
+}
+
+func getTrailheadID(userAlias string) string {
+	res, err := http.Get("https://trailblazer.me/id/" + userAlias)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
+}
+
+func badgesHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["id"]
+
+	if !strings.HasPrefix(userID, "005") {
+		userID = getTrailheadID(userID)
+	}
+
+	writeTrailheadDataToPage(w, r, "message=%7B%22actions%22%3A%5B%7B%22id%22%3A%22212%3Ba%22%2C%22descriptor%22%3A%22aura%3A%2F%2FApexActionController%2FACTION%24execute%22%2C%22callingDescriptor%22%3A%22UNKNOWN%22%2C%22params%22%3A%7B%22namespace%22%3A%22%22%2C%22classname%22%3A%22TrailheadProfileService%22%2C%22method%22%3A%22fetchTrailheadBadges%22%2C%22params%22%3A%7B%22userId%22%3A%22"+userID+"%22%2C%22language%22%3A%22en-US%22%2C%22skip%22%3A0%2C%22perPage%22%3A30%2C%22filter%22%3A%22All%22%7D%2C%22cacheable%22%3Afalse%2C%22isContinuation%22%3Afalse%7D%7D%5D%7D&aura.context=%7B%22mode%22%3A%22PROD%22%2C%22fwuid%22%3A%22kHqYrsGCjDhXliyGcYtIfA%22%2C%22app%22%3A%22c%3AProfileApp%22%2C%22loaded%22%3A%7B%22APPLICATION%40markup%3A%2F%2Fc%3AProfileApp%22%3A%22ek_TM7ZsKg1GOjZ-VKN7Pg%22%7D%2C%22dn%22%3A%5B%5D%2C%22globals%22%3A%7B%22srcdoc%22%3Atrue%7D%2C%22uad%22%3Atrue%7D&aura.pageURI=&aura.token=")
+}
+
+func badgesFilterHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["id"]
+	badgesFilter := vars["filter"]
+
+	if !strings.HasPrefix(userID, "005") {
+		userID = getTrailheadID(userID)
+	}
+
+	writeTrailheadDataToPage(w, r, "message=%7B%22actions%22%3A%5B%7B%22id%22%3A%22212%3Ba%22%2C%22descriptor%22%3A%22aura%3A%2F%2FApexActionController%2FACTION%24execute%22%2C%22callingDescriptor%22%3A%22UNKNOWN%22%2C%22params%22%3A%7B%22namespace%22%3A%22%22%2C%22classname%22%3A%22TrailheadProfileService%22%2C%22method%22%3A%22fetchTrailheadBadges%22%2C%22params%22%3A%7B%22userId%22%3A%22"+userID+"%22%2C%22language%22%3A%22en-US%22%2C%22skip%22%3A0%2C%22perPage%22%3A30%2C%22filter%22%3A%22"+badgesFilter+"%22%7D%2C%22cacheable%22%3Afalse%2C%22isContinuation%22%3Afalse%7D%7D%5D%7D&aura.context=%7B%22mode%22%3A%22PROD%22%2C%22fwuid%22%3A%22kHqYrsGCjDhXliyGcYtIfA%22%2C%22app%22%3A%22c%3AProfileApp%22%2C%22loaded%22%3A%7B%22APPLICATION%40markup%3A%2F%2Fc%3AProfileApp%22%3A%22ek_TM7ZsKg1GOjZ-VKN7Pg%22%7D%2C%22dn%22%3A%5B%5D%2C%22globals%22%3A%7B%22srcdoc%22%3Atrue%7D%2C%22uad%22%3Atrue%7D&aura.pageURI=&aura.token=")
+}
+
+func writeTrailheadDataToPage(w http.ResponseWriter, r *http.Request, messagePayload string) {
+	vars := mux.Vars(r)
+	userID := vars["id"]
+
+	if !strings.HasPrefix(userID, "005") {
+		userID = getTrailheadID(userID)
+	}
+
 	url := "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
 	method := "POST"
-	//0051I000004UgTlQAK
-	payload := strings.NewReader("message=%7B%22actions%22%3A%5B%7B%22id%22%3A%22105%3Ba%22%2C%22descriptor%22%3A%22aura%3A%2F%2FApexActionController%2FACTION%24execute%22%2C%22callingDescriptor%22%3A%22UNKNOWN%22%2C%22params%22%3A%7B%22namespace%22%3A%22%22%2C%22classname%22%3A%22TrailheadProfileService%22%2C%22method%22%3A%22fetchTrailheadData%22%2C%22params%22%3A%7B%22userId%22%3A%22" + userID + "%22%2C%22language%22%3A%22en-US%22%7D%2C%22cacheable%22%3Afalse%2C%22isContinuation%22%3Afalse%7D%7D%5D%7D&aura.context=%7B%22mode%22%3A%22PROD%22%2C%22fwuid%22%3A%22kHqYrsGCjDhXliyGcYtIfA%22%2C%22app%22%3A%22c%3AProfileApp%22%2C%22loaded%22%3A%7B%22APPLICATION%40markup%3A%2F%2Fc%3AProfileApp%22%3A%22ZoNFIdcxHaEP9RDPdsobUQ%22%7D%2C%22dn%22%3A%5B%5D%2C%22globals%22%3A%7B%22srcdoc%22%3Atrue%7D%2C%22uad%22%3Atrue%7D&aura.pageURI=%2Fid&aura.token=")
+	payload := strings.NewReader(messagePayload)
 
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
@@ -65,21 +115,6 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(trailheadData.Actions[0].ReturnValue.ReturnValue.Body))
 }
 
-func getTrailheadID(userAlias string) string {
-	res, err := http.Get("https://trailblazer.me/id/" + userAlias)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	return string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
-}
-
 func catchAllHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"error":"Please provide a valid Trialhead User Id or Name at /trailblazer/{id}"}`))
@@ -88,6 +123,8 @@ func catchAllHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/trailblazer/{id}", trailblazerHandler)
+	r.HandleFunc("/trailblazer/{id}/badges", badgesHandler)
+	r.HandleFunc("/trailblazer/{id}/badges/{filter}", badgesFilterHandler)
 	r.PathPrefix("/").HandlerFunc(catchAllHandler)
 	http.Handle("/", r)
 
