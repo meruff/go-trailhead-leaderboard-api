@@ -80,8 +80,6 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 
-	fmt.Println(string(body))
-
 	jsonString := strings.Replace(string(body), "\\'", "\\\\'", -1)
 	jsonString = jsonString[strings.Index(jsonString, "var profileData = JSON.parse(")+29 : strings.Index(jsonString, "trailblazer.me\\\"}\");")+18]
 
@@ -117,7 +115,7 @@ func badgesFilterHandler(w http.ResponseWriter, r *http.Request) {
 		userID = getTrailheadID(userID)
 	}
 
-	callApexExecAndWriteToPage(w, r, "message=%7B%22actions%22%3A%5B%7B%22id%22%3A%22212%3Ba%22%2C%22descriptor%22%3A%22aura%3A%2F%2FApexActionController%2FACTION%24execute%22%2C%22callingDescriptor%22%3A%22UNKNOWN%22%2C%22params%22%3A%7B%22namespace%22%3A%22%22%2C%22classname%22%3A%22TrailheadProfileService%22%2C%22method%22%3A%22fetchTrailheadBadges%22%2C%22params%22%3A%7B%22userId%22%3A%22"+userID+"%22%2C%22language%22%3A%22en-US%22%2C%22skip%22%3A0%2C%22perPage%22%3A30%2C%22filter%22%3A%22"+badgesFilter+"%22%7D%2C%22cacheable%22%3Afalse%2C%22isContinuation%22%3Afalse%7D%7D%5D%7D&aura.context=%7B%22mode%22%3A%22PROD%22%2C%22fwuid%22%3A%22kHqYrsGCjDhXliyGcYtIfA%22%2C%22app%22%3A%22c%3AProfileApp%22%2C%22loaded%22%3A%7B%22APPLICATION%40markup%3A%2F%2Fc%3AProfileApp%22%3A%22ek_TM7ZsKg1GOjZ-VKN7Pg%22%7D%2C%22dn%22%3A%5B%5D%2C%22globals%22%3A%7B%22srcdoc%22%3Atrue%7D%2C%22uad%22%3Atrue%7D&aura.pageURI=&aura.token=")
+	callApexExecAndWriteToPage(w, r, "message=%7B%22actions%22%3A%5B%7B%22id%22%3A%22212%3Ba%22%2C%22descriptor%22%3A%22aura%3A%2F%2FApexActionController%2FACTION%24execute%22%2C%22callingDescriptor%22%3A%22UNKNOWN%22%2C%22params%22%3A%7B%22namespace%22%3A%22%22%2C%22classname%22%3A%22TrailheadProfileService%22%2C%22method%22%3A%22fetchTrailheadBadges%22%2C%22params%22%3A%7B%22userId%22%3A%22"+userID+"%22%2C%22language%22%3A%22en-US%22%2C%22skip%22%3A0%2C%22perPage%22%3A30%2C%22filter%22%3A%22"+strings.Title(badgesFilter)+"%22%7D%2C%22cacheable%22%3Afalse%2C%22isContinuation%22%3Afalse%7D%7D%5D%7D&aura.context=%7B%22mode%22%3A%22PROD%22%2C%22fwuid%22%3A%22kHqYrsGCjDhXliyGcYtIfA%22%2C%22app%22%3A%22c%3AProfileApp%22%2C%22loaded%22%3A%7B%22APPLICATION%40markup%3A%2F%2Fc%3AProfileApp%22%3A%22ek_TM7ZsKg1GOjZ-VKN7Pg%22%7D%2C%22dn%22%3A%5B%5D%2C%22globals%22%3A%7B%22srcdoc%22%3Atrue%7D%2C%22uad%22%3Atrue%7D&aura.pageURI=&aura.token=")
 }
 
 func callApexExecAndWriteToPage(w http.ResponseWriter, r *http.Request, messagePayload string) {
