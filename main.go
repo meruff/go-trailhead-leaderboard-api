@@ -13,6 +13,7 @@ import (
 )
 
 const trailblazerMe = "https://trailblazer.me/id/"
+const trailblazerMeUserID = "https://trailblazer.me/id?cmty=trailhead&uid="
 const trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
 
 // TrailheadData represent a list of Users on trailhead.salesforce.com
@@ -59,10 +60,17 @@ func getTrailheadID(userAlias string) string {
 }
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {
+	var calloutURL string
 	vars := mux.Vars(r)
 	userAlias := vars["id"]
 
-	res, err := http.Get(trailblazerMe + userAlias)
+	if strings.HasPrefix(userAlias, "005") {
+		calloutURL = trailblazerMeUserID
+	} else {
+		calloutURL = trailblazerMe
+	}
+
+	res, err := http.Get(calloutURL + userAlias)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -71,6 +79,8 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	fmt.Println(string(body))
 
 	jsonString := strings.Replace(string(body), "\\'", "\\\\'", -1)
 	jsonString = jsonString[strings.Index(jsonString, "var profileData = JSON.parse(")+29 : strings.Index(jsonString, "trailblazer.me\\\"}\");")+18]
@@ -111,13 +121,6 @@ func badgesFilterHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func callApexExecAndWriteToPage(w http.ResponseWriter, r *http.Request, messagePayload string) {
-	vars := mux.Vars(r)
-	userID := vars["id"]
-
-	if !strings.HasPrefix(userID, "005") {
-		userID = getTrailheadID(userID)
-	}
-
 	url := trailblazerMeApexExec
 	method := "POST"
 	payload := strings.NewReader(messagePayload)
