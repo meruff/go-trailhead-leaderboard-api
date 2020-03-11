@@ -20,7 +20,7 @@ If you have [Go](https://golang.org/doc/install) installed, you can run it local
 $ go run main.go
 ```
 
-## Use
+## Usage
 
 This app has a few different endpoints for accessing public Trailhead data.
 
@@ -51,3 +51,7 @@ https://go-trailhead-leaderboard-api.herokuapp.com/trailblazer/<trailhead_handle
 ```
 
 Add an offset to the end of the filter will allow you to offest your badge query by that many. For example, because the API only returns 30 at a time, `/badges/module` will only get you the 30 most recent badges of type module. To get the next 30 you would call `/badges/module/30` to offset the query and return the next 30 badges. [Example](https://go-trailhead-leaderboard-api.herokuapp.com/trailblazer/matruff/badges/module/30)
+
+## Special Thanks
+
+Thanks to both [@Patlatus](https://github.com/Patlatus/Salesforce-Trailhead-Api-Hack) and [@krankekatze](https://github.com/krankekatze/trailhead-batch) for the inspiration to build this. Check out their repos for related solutions.
