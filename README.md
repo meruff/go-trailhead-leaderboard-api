@@ -50,4 +50,4 @@ This endpoint returns badges earned by the Trailblazer. The API only gives a max
 https://go-trailhead-leaderboard-api.herokuapp.com/trailblazer/<trailhead_handle>/badges/<offset>
 ```
 
-Add an offset to the end of the filter will allow you to offest your badge query by that many. For example, because the API only returns 30 at a time, `/badges/module` will only get you the 30 most recent badges of type module. To get the next 30 you would call `/badges/module/30` to offset the query and return the next 30 badges. [Example](https://go-trailhead-leaderboard-api.herokuapp.com/trailblazer/matruff/badges/superbadge/30)
+Add an offset to the end of the filter will allow you to offest your badge query by that many. For example, because the API only returns 30 at a time, `/badges/module` will only get you the 30 most recent badges of type module. To get the next 30 you would call `/badges/module/30` to offset the query and return the next 30 badges. [Example](https://go-trailhead-leaderboard-api.herokuapp.com/trailblazer/matruff/badges/module/30)
