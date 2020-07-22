@@ -48,71 +48,38 @@ type TrailheadData struct {
 	} `json:"context"`
 }
 
+func main() {
+	r := mux.NewRouter()
+	r.HandleFunc("/trailblazer/{id}", trailblazerHandler)
+	r.HandleFunc("/trailblazer/{id}/profile", profileHandler)
+	r.HandleFunc("/trailblazer/{id}/badges", badgesHandler)
+	r.HandleFunc("/trailblazer/{id}/badges/{filter}", badgesFilterHandler)
+	r.HandleFunc("/trailblazer/{id}/badges/{filter}/{offset}", badgesFilterHandler)
+	r.HandleFunc("/trailblazer/{id}/certifications", certificationsHandler)
+	r.PathPrefix("/").HandlerFunc(catchAllHandler)
+	http.Handle("/", r)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		http.ListenAndServe(":8000", nil)
+	} else {
+		http.ListenAndServe(":"+os.Getenv("PORT"), nil)
+	}
+}
+
+// Gets a basic overview of the Trailblazer i.e. profile counts, recent badges, and skills.
 func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	userID := vars["id"]
-
-	if !strings.HasPrefix(userID, "005") {
-		userID = getTrailheadID(userID)
-	}
+	userID := getTrailheadID(w, vars["id"])
 
 	var trailheadData = getApexExecResponse(
-		`message={
-			"actions":[
-				{
-					"id":"105;a",
-					"descriptor":"aura://ApexActionController/ACTION$execute",
-					"callingDescriptor":"UNKNOWN",
-					"params":{
-						"namespace":"",
-						"classname":"TrailheadProfileService",
-						"method":"fetchTrailheadData",
-						"params":{
-							"userId":"` + userID + `",
-							"language":"en-US"
-						},
-						"cacheable":false,
-						"isContinuation":false
-					}
-				}
-			]
-		}
-		&aura.context={
-			"mode":"PROD",
-			"fwuid":"` + fwuid + `",
-			"app":"c:ProfileApp",
-			"loaded":{
-				"APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
-			},
-			"dn":[],
-			"globals":{
-				"srcdoc":true
-			},
-			"uad":true
-		}
-		&aura.pageURI=/id
-		&aura.token=`)
+		`message={"actions":[` + getAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
+			`&aura.context=` + getAuraContext() + `&aura.pageURI=/id&aura.token="`)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(trailheadData.Actions[0].ReturnValue.ReturnValue.Body))
+	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 }
 
-func getTrailheadID(userAlias string) string {
-	res, err := http.Get(trailblazerMe + userAlias)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	defer res.Body.Close()
-
-	return string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
-}
-
+// Gets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
 func profileHandler(w http.ResponseWriter, r *http.Request) {
 	var calloutURL string
 	vars := mux.Vars(r)
@@ -145,64 +112,25 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer res.Body.Close()
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(out))
+	writeJSONToBrowser(w, out)
 }
 
+// Gets badges the Trailblazer has earned. Returns first 30.
 func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	userID := vars["id"]
-
-	if !strings.HasPrefix(userID, "005") {
-		userID = getTrailheadID(userID)
-	}
+	userID := getTrailheadID(w, vars["id"])
 
 	var trailheadData = getApexExecResponse(
-		`message={
-			"actions":[
-				{
-					"id":"212;a",
-					"descriptor":"aura://ApexActionController/ACTION$execute",
-					"callingDescriptor":"UNKNOWN",
-					"params":{
-						"namespace":"",
-						"classname":"TrailheadProfileService",
-						"method":"fetchTrailheadBadges",
-						"params":{
-							"userId":"` + userID + `",
-							"language":"en-US",
-							"skip":0,"perPage":30,
-							"filter":"All"
-						},
-						"cacheable":false,
-						"isContinuation":false
-					}
-				}
-			]
-		}
-		&aura.context={
-			"mode":"PROD",
-			"fwuid":"` + fwuid + `",
-			"app":"c:ProfileApp",
-			"loaded":{
-				"APPLICATION@markup://c:ProfileApp":"ek_TM7ZsKg1GOjZ-VKN7Pg"
-			},
-			"dn":[],
-			"globals":{
-				"srcdoc":true
-			},
-			"uad":true
-		}
-		&aura.pageURI=
-		&aura.token="`)
+		`message={"actions":[` + getAction("TrailheadProfileService", "fetchTrailheadBadges", userID, "0", "All") + `]}` +
+			`&aura.context=` + getAuraContext() + `&aura.pageURI=&aura.token="`)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(trailheadData.Actions[0].ReturnValue.ReturnValue.Body))
+	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 }
 
+// Gets badges the Trailblazer has earned based on filter criteria, or offset i.e. "event" type badges, offset by 30.
 func badgesFilterHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	userID := vars["id"]
+	userID := getTrailheadID(w, vars["id"])
 	badgesFilter := vars["filter"]
 	skip := vars["offset"]
 
@@ -210,107 +138,60 @@ func badgesFilterHandler(w http.ResponseWriter, r *http.Request) {
 		skip = "0"
 	}
 
-	if !strings.HasPrefix(userID, "005") {
-		userID = getTrailheadID(userID)
-	}
-
 	var trailheadData = getApexExecResponse(
-		`message={
-			"actions":[
-				{
-					"id":"212;a",
-					"descriptor":"aura://ApexActionController/ACTION$execute",
-					"callingDescriptor":"UNKNOWN",
-					"params":{
-						"namespace":"",
-						"classname":"TrailheadProfileService",
-						"method":"fetchTrailheadBadges",
-						"params":{
-							"userId":"` + userID + `",
-							"language":"en-US",
-							"skip":"` + skip + `",
-							"perPage":30,
-							"filter":"` + strings.Title(badgesFilter) + `"
-						},
-						"cacheable":false,
-						"isContinuation":false
-					}
-				}
-			]
-		}
-		&aura.context={
-			"mode":"PROD",
-			"fwuid":"` + fwuid + `",
-			"app":"c:ProfileApp",
-			"loaded":{
-				"APPLICATION@markup://c:ProfileApp":"ek_TM7ZsKg1GOjZ-VKN7Pg"
-			},
-			"dn":[],
-			"globals":{
-				"srcdoc":true
-			},
-			"uad":true
-		}
-		&aura.pageURI=
-		&aura.token=`)
+		`message={"actions":[` + getAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter) + `]}` +
+			`&aura.context=` + getAuraContext() + `&aura.pageURI=&aura.token="`)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(trailheadData.Actions[0].ReturnValue.ReturnValue.Body))
+	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 }
 
+// Gets Salesforce certifications the Trailblazer has earned.
 func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	userID := vars["id"]
-
-	if !strings.HasPrefix(userID, "005") {
-		userID = getTrailheadID(userID)
-	}
+	userID := getTrailheadID(w, vars["id"])
 
 	var trailheadData = getApexExecResponse(
-		`message={
-			"actions":[
-				{
-					"id":"105;a",
-					"descriptor":"aura://ApexActionController/ACTION$execute",
-					"callingDescriptor":"UNKNOWN",
-					"params":{
-						"namespace":"",
-						"classname":"AchievementService",
-						"method":"fetchAchievements",
-						"params":{
-							"userId":"` + userID + `",
-							"language":"en-US"
-						},
-						"cacheable":false,
-						"isContinuation":false
-					}
-				}
-			]
-		}
-		&aura.context={
-			"mode":"PROD",
-			"fwuid":"` + fwuid + `",
-			"app":"c:ProfileApp",
-			"loaded":{
-				"APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
-			},
-			"dn":[],
-			"globals":{
-				"srcdoc":true
-			},
-			"uad":true
-		}
-		&aura.pageURI=/id
-		&aura.token=`)
+		`message={"actions":[` + getAction("AchievementService", "fetchAchievements", userID, "", "") + `]}` +
+			`&aura.context=` + getAuraContext() + `&aura.pageURI=&aura.token="`)
 
-	w.Header().Set("Content-Type", "application/json")
 	jsonOutput, err := json.Marshal(trailheadData.Actions[0].ReturnValue.ReturnValue.CertificationsResult)
+
 	if err != nil {
 		fmt.Println(err)
 	}
-	w.Write(jsonOutput)
+
+	writeJSONToBrowser(w, string(jsonOutput))
 }
 
+// Gets the Trailblazer's user Id from Trailhead, if provided with a custom user handle i.e. "matruff" => "0051I000004XSMrQAO"
+func getTrailheadID(w http.ResponseWriter, userAlias string) string {
+	if !strings.HasPrefix(userAlias, "005") {
+		res, err := http.Get(trailblazerMe + userAlias)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		defer res.Body.Close()
+
+		userID := string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
+
+		if !strings.HasPrefix(userID, "005") {
+			writeJSONToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`'. Does this profile exist? Is it set to public?"}`)
+			return ""
+		}
+
+		return userID
+	}
+
+	return userAlias
+}
+
+// Does the callout and returns the Apex REST response from Trailhead.
 func getApexExecResponse(messagePayload string) TrailheadData {
 	url := trailblazerMeApexExec
 	method := "POST"
@@ -341,26 +222,66 @@ func getApexExecResponse(messagePayload string) TrailheadData {
 	return trailheadData
 }
 
+// The default message if no Trailblazer Id or handle is provided, or if the user has navigated to an unsupported page.
 func catchAllHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"error":"Please provide a valid Trialhead User Id or Name at /trailblazer/{id}"}`))
+	writeJSONToBrowser(w, `{"error":"Please provide a valid Trialhead user Id/handle or visit a valid URL. Example: /trailblazer/{id}"}`)
 }
 
-func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/trailblazer/{id}", trailblazerHandler)
-	r.HandleFunc("/trailblazer/{id}/profile", profileHandler)
-	r.HandleFunc("/trailblazer/{id}/badges", badgesHandler)
-	r.HandleFunc("/trailblazer/{id}/badges/{filter}", badgesFilterHandler)
-	r.HandleFunc("/trailblazer/{id}/badges/{filter}/{offset}", badgesFilterHandler)
-	r.HandleFunc("/trailblazer/{id}/certifications", certificationsHandler)
-	r.PathPrefix("/").HandlerFunc(catchAllHandler)
-	http.Handle("/", r)
+// Returns a JSON string representing an Apex action to be used in the callout to Trailhead.
+func getAction(className string, methodName string, userID string, skip string, filter string) string {
+	actionString :=
+		`{
+			"id":"212;a",
+			"descriptor":"aura://ApexActionController/ACTION$execute",
+			"callingDescriptor":"UNKNOWN",
+			"params":{
+				"namespace":"",
+				"classname":"` + className + `",
+				"method":"` + methodName + `",
+				"params":{
+					"userId":"` + userID + `",
+					"language":"en-US"`
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		http.ListenAndServe(":8000", nil)
-	} else {
-		http.ListenAndServe(":"+os.Getenv("PORT"), nil)
+	if skip != "" {
+		actionString += `,
+					"skip":` + skip + `,
+					"perPage":30`
 	}
+
+	if filter != "" {
+		actionString += `,
+					"filter":"` + strings.Title(filter) + `"`
+	}
+
+	actionString += `
+				},
+					"cacheable":false,
+					"isContinuation":false
+				}
+			}`
+
+	return actionString
+}
+
+// Returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
+func getAuraContext() string {
+	return `{
+		"mode":"PROD",
+		"fwuid":"` + fwuid + `",
+		"app":"c:ProfileApp",
+		"loaded":{
+			"APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
+		},
+		"dn":[],
+		"globals":{
+			"srcdoc":true
+		},
+		"uad":true
+	}`
+}
+
+// Simply writes a provided string to the browser in JSON format.
+func writeJSONToBrowser(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(message))
 }
