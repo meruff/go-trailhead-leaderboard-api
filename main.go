@@ -231,34 +231,34 @@ func catchAllHandler(w http.ResponseWriter, r *http.Request) {
 func getAction(className string, methodName string, userID string, skip string, filter string) string {
 	actionString :=
 		`{
-			"id":"212;a",
-			"descriptor":"aura://ApexActionController/ACTION$execute",
-			"callingDescriptor":"UNKNOWN",
-			"params":{
-				"namespace":"",
-				"classname":"` + className + `",
-				"method":"` + methodName + `",
-				"params":{
-					"userId":"` + userID + `",
-					"language":"en-US"`
+            "id":"212;a",
+            "descriptor":"aura://ApexActionController/ACTION$execute",
+            "callingDescriptor":"UNKNOWN",
+            "params":{
+                "namespace":"",
+                "classname":"` + className + `",
+                "method":"` + methodName + `",
+                "params":{
+                    "userId":"` + userID + `",
+                    "language":"en-US"`
 
 	if skip != "" {
 		actionString += `,
-					"skip":` + skip + `,
-					"perPage":30`
+                    "skip":` + skip + `,
+                    "perPage":30`
 	}
 
 	if filter != "" {
 		actionString += `,
-					"filter":"` + strings.Title(filter) + `"`
+                    "filter":"` + strings.Title(filter) + `"`
 	}
 
 	actionString += `
-				},
-					"cacheable":false,
-					"isContinuation":false
-				}
-			}`
+                },
+                    "cacheable":false,
+                    "isContinuation":false
+                }
+            }`
 
 	return actionString
 }
@@ -266,18 +266,18 @@ func getAction(className string, methodName string, userID string, skip string, 
 // Returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
 func getAuraContext() string {
 	return `{
-		"mode":"PROD",
-		"fwuid":"` + fwuid + `",
-		"app":"c:ProfileApp",
-		"loaded":{
-			"APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
-		},
-		"dn":[],
-		"globals":{
-			"srcdoc":true
-		},
-		"uad":true
-	}`
+        "mode":"PROD",
+        "fwuid":"` + fwuid + `",
+        "app":"c:ProfileApp",
+        "loaded":{
+            "APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
+        },
+        "dn":[],
+        "globals":{
+            "srcdoc":true
+        },
+        "uad":true
+    }`
 }
 
 // Simply writes a provided string to the browser in JSON format.
