@@ -29,8 +29,10 @@ type TrailheadData struct {
 				CertificationsResult struct {
 					CertificationsList []struct {
 						CertificationImageURL string `json:"certificationImageUrl"`
+						CertificationStatus   string `json:"certificationStatus"`
 						CertificationURL      string `json:"certificationUrl"`
 						DateCompleted         string `json:"dateCompleted"`
+						DateExpired           string `json:"dateExpired"`
 						Description           string `json:"description"`
 						Title                 string `json:"title"`
 					} `json:"certificationsList"`
