@@ -15,7 +15,7 @@ import (
 const trailblazerMe = "https://trailblazer.me/id/"
 const trailblazerMeUserID = "https://trailblazer.me/id?cmty=trailhead&uid="
 const trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
-const fwuid = "ReJ5V8Oa_EmHa1B_VZHK_g"
+const fwuid = "7p9HLMpgnV2GO9MqZhXGUw"
 
 // TrailheadData represent a list of Users on trailhead.salesforce.com
 type TrailheadData struct {
