@@ -2,14 +2,16 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/meruff/go-trailhead-leaderboard-api/trailhead"
 )
 
 const trailblazerMe = "https://trailblazer.me/id/"
@@ -17,48 +19,16 @@ const trailblazerMeUserID = "https://trailblazer.me/id?cmty=trailhead&uid="
 const trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
 const fwuid = "7p9HLMpgnV2GO9MqZhXGUw"
 
-// TrailheadData represent a list of Users on trailhead.salesforce.com
-type TrailheadData struct {
-	Actions []struct {
-		ID          string `json:"id"`
-		State       string `json:"state"`
-		ReturnValue struct {
-			ReturnValue struct {
-				Body                 string `json:"body"`
-				SuperbadgesResult    string `json:"superbadgesResult"`
-				CertificationsResult struct {
-					CertificationsList []struct {
-						CertificationImageURL string `json:"certificationImageUrl"`
-						CertificationStatus   string `json:"certificationStatus"`
-						CertificationURL      string `json:"certificationUrl"`
-						DateCompleted         string `json:"dateCompleted"`
-						DateExpired           string `json:"dateExpired"`
-						Description           string `json:"description"`
-						Title                 string `json:"title"`
-					} `json:"certificationsList"`
-					StatusCode    string `json:"statusCode"`
-					StatusMessage string `json:"statusMessage"`
-				} `json:"certificationsResult"`
-				IsMyTrailheadUser bool `json:"isMyTrailheadUser"`
-			} `json:"returnValue"`
-			Cacheable bool `json:"cacheable"`
-		} `json:"returnValue"`
-		Error []interface{} `json:"error"`
-	} `json:"actions"`
-	Context struct {
-		Fwuid string `json:"fwuid"`
-	} `json:"context"`
-}
-
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/trailblazer/{id}", trailblazerHandler)
 	r.HandleFunc("/trailblazer/{id}/profile", profileHandler)
 	r.HandleFunc("/trailblazer/{id}/badges", badgesHandler)
-	r.HandleFunc("/trailblazer/{id}/badges/{filter}", badgesFilterHandler)
-	r.HandleFunc("/trailblazer/{id}/badges/{filter}/{offset}", badgesFilterHandler)
+	r.HandleFunc("/trailblazer/{id}/badges/{filter}", badgesHandler)
+	r.HandleFunc("/trailblazer/{id}/badges/{filter}/{offset}", badgesHandler)
 	r.HandleFunc("/trailblazer/{id}/certifications", certificationsHandler)
 	r.PathPrefix("/").HandlerFunc(catchAllHandler)
+	r.Use(loggingHandler)
 	http.Handle("/", r)
 
 	port := os.Getenv("PORT")
@@ -69,19 +39,19 @@ func main() {
 	}
 }
 
-// Gets a basic overview of the Trailblazer i.e. profile counts, recent badges, and skills.
+// trailblazerHandler gets a basic overview of the Trailblazer i.e. profile counts, recent badges, and skills.
 func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
 
-	var trailheadData = getApexExecResponse(
-		`message={"actions":[` + getAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
-			`&aura.context=` + getAuraContext() + `&aura.pageURI=/id&aura.token="`)
+	var trailheadData = doTrailheadCallout(
+		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
+			`&aura.context=` + trailhead.GetAuraContext(fwuid) + `&aura.pageURI=/id&aura.token="`)
 
 	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 }
 
-// Gets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
+// profileHandler ets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
 func profileHandler(w http.ResponseWriter, r *http.Request) {
 	var calloutURL string
 	vars := mux.Vars(r)
@@ -95,12 +65,12 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 
 	res, err := http.Get(calloutURL + userAlias)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	jsonString := strings.Replace(string(body), "\\'", "\\\\'", -1)
@@ -108,7 +78,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 
 	out, err := strconv.Unquote(jsonString)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	out = strings.Replace(out, "\\'", "'", -1)
 
@@ -117,20 +87,9 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONToBrowser(w, out)
 }
 
-// Gets badges the Trailblazer has earned. Returns first 30.
+// badgeshandler gets badges the Trailblazer has earned. Returns first 30. Optionally can
+// provide filter criteria, or offset i.e. "event" type badges, offset by 30.
 func badgesHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := getTrailheadID(w, vars["id"])
-
-	var trailheadData = getApexExecResponse(
-		`message={"actions":[` + getAction("TrailheadProfileService", "fetchTrailheadBadges", userID, "0", "All") + `]}` +
-			`&aura.context=` + getAuraContext() + `&aura.pageURI=&aura.token="`)
-
-	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
-}
-
-// Gets badges the Trailblazer has earned based on filter criteria, or offset i.e. "event" type badges, offset by 30.
-func badgesFilterHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
 	badgesFilter := vars["filter"]
@@ -140,42 +99,61 @@ func badgesFilterHandler(w http.ResponseWriter, r *http.Request) {
 		skip = "0"
 	}
 
-	var trailheadData = getApexExecResponse(
-		`message={"actions":[` + getAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter) + `]}` +
-			`&aura.context=` + getAuraContext() + `&aura.pageURI=&aura.token="`)
+	var trailheadData = doTrailheadCallout(
+		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter) + `]}` +
+			`&aura.context=` + trailhead.GetAuraContext(fwuid) + `&aura.pageURI=&aura.token="`)
 
-	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
+	if trailheadData.Actions != nil {
+		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
+	} else {
+		jsonError(w, `{"error":"No data returned from Trailhead."}`, 503)
+	}
 }
 
-// Gets Salesforce certifications the Trailblazer has earned.
+// certificationsHandler gets Salesforce certifications the Trailblazer has earned.
 func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
 
-	var trailheadData = getApexExecResponse(
-		`message={"actions":[` + getAction("AchievementService", "fetchAchievements", userID, "", "") + `]}` +
-			`&aura.context=` + getAuraContext() + `&aura.pageURI=&aura.token="`)
+	var trailheadData = doTrailheadCallout(
+		`message={"actions":[` + trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", "") + `]}` +
+			`&aura.context=` + trailhead.GetAuraContext(fwuid) + `&aura.pageURI=&aura.token="`)
 
-	jsonOutput, err := json.Marshal(trailheadData.Actions[0].ReturnValue.ReturnValue.CertificationsResult)
-
-	if err != nil {
-		fmt.Println(err)
+	if trailheadData.Actions != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(trailheadData.Actions[0].ReturnValue.ReturnValue.CertificationsResult)
+	} else {
+		jsonError(w, `{"error":"No data returned from Trailhead."}`, 503)
 	}
-
-	writeJSONToBrowser(w, string(jsonOutput))
 }
 
-// Gets the Trailblazer's user Id from Trailhead, if provided with a custom user handle i.e. "matruff" => "0051I000004XSMrQAO"
+// loggingHandler logs time spent to access each request/what page was requested.
+func loggingHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t1 := time.Now()
+		next.ServeHTTP(w, r)
+		t2 := time.Now()
+		log.Printf("[%s] %q %v\n", r.Method, r.URL.String(), t2.Sub(t1))
+	})
+}
+
+// catchAllHandler is the default message if no Trailblazer Id or handle is provided,
+// or if the u	ser has navigated to an unsupported page.
+func catchAllHandler(w http.ResponseWriter, r *http.Request) {
+	jsonError(w, `{"error":"Please provide a valid Trialhead user Id/handle or visit a valid URL. Example: /trailblazer/{id}"}`, 501)
+}
+
+// getTrailheadID gets the Trailblazer's user Id from Trailhead, if provided with a custom user handle i.e. "matruff" => "0051I000004XSMrQAO"
 func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	if !strings.HasPrefix(userAlias, "005") {
 		res, err := http.Get(trailblazerMe + userAlias)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 
 		defer res.Body.Close()
@@ -193,8 +171,8 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	return userAlias
 }
 
-// Does the callout and returns the Apex REST response from Trailhead.
-func getApexExecResponse(messagePayload string) TrailheadData {
+// doTrailheadCallout does the callout and returns the Apex REST response from Trailhead.
+func doTrailheadCallout(messagePayload string) trailhead.Data {
 	url := trailblazerMeApexExec
 	method := "POST"
 	payload := strings.NewReader(messagePayload)
@@ -203,7 +181,7 @@ func getApexExecResponse(messagePayload string) TrailheadData {
 	req, err := http.NewRequest(method, url, payload)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	req.Header.Add("Accept", "*/*")
@@ -216,7 +194,7 @@ func getApexExecResponse(messagePayload string) TrailheadData {
 
 	res, err := client.Do(req)
 	body, err := ioutil.ReadAll(res.Body)
-	var trailheadData TrailheadData
+	var trailheadData trailhead.Data
 	json.Unmarshal(body, &trailheadData)
 
 	defer res.Body.Close()
@@ -224,66 +202,15 @@ func getApexExecResponse(messagePayload string) TrailheadData {
 	return trailheadData
 }
 
-// The default message if no Trailblazer Id or handle is provided, or if the user has navigated to an unsupported page.
-func catchAllHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSONToBrowser(w, `{"error":"Please provide a valid Trialhead user Id/handle or visit a valid URL. Example: /trailblazer/{id}"}`)
-}
-
-// Returns a JSON string representing an Apex action to be used in the callout to Trailhead.
-func getAction(className string, methodName string, userID string, skip string, filter string) string {
-	actionString :=
-		`{
-            "id":"212;a",
-            "descriptor":"aura://ApexActionController/ACTION$execute",
-            "callingDescriptor":"UNKNOWN",
-            "params":{
-                "namespace":"",
-                "classname":"` + className + `",
-                "method":"` + methodName + `",
-                "params":{
-                    "userId":"` + userID + `",
-                    "language":"en-US"`
-
-	if skip != "" {
-		actionString += `,
-                    "skip":` + skip + `,
-                    "perPage":30`
-	}
-
-	if filter != "" {
-		actionString += `,
-                    "filter":"` + strings.Title(filter) + `"`
-	}
-
-	actionString += `
-                },
-                    "cacheable":false,
-                    "isContinuation":false
-                }
-            }`
-
-	return actionString
-}
-
-// Returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
-func getAuraContext() string {
-	return `{
-        "mode":"PROD",
-        "fwuid":"` + fwuid + `",
-        "app":"c:ProfileApp",
-        "loaded":{
-            "APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
-        },
-        "dn":[],
-        "globals":{
-            "srcdoc":true
-        },
-        "uad":true
-    }`
-}
-
-// Simply writes a provided string to the browser in JSON format.
+// writeJSONToBrowser simply writes a provided string to the browser in JSON format with optional HTTP code.
 func writeJSONToBrowser(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(message))
+}
+
+// jsonError writes an HTTP error to the broswer in JSON.
+func jsonError(w http.ResponseWriter, err string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write([]byte(err))
 }
