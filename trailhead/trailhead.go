@@ -2,6 +2,8 @@ package trailhead
 
 import "strings"
 
+const fwuid = "axnV2upVY_ZFzdo18txAEw"
+
 // Data represent a response from trailhead.salesforce.com
 type Data struct {
 	Actions []struct {
@@ -36,7 +38,7 @@ type Data struct {
 }
 
 // GetAuraContext returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
-func GetAuraContext(fwuid string) string {
+func GetAuraContext() string {
 	return `{
         "mode":"PROD",
         "fwuid":"` + fwuid + `",

@@ -18,7 +18,6 @@ const (
 	trailblazerMe         = "https://trailblazer.me/id/"
 	trailblazerMeUserID   = "https://trailblazer.me/id?cmty=trailhead&uid="
 	trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
-	fwuid                 = "axnV2upVY_ZFzdo18txAEw"
 )
 
 func main() {
@@ -48,7 +47,7 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 
 	var trailheadData = doTrailheadCallout(
 		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext(fwuid) + `&aura.pageURI=/id&aura.token="`)
+			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=/id&aura.token="`)
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -110,7 +109,7 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 
 	var trailheadData = doTrailheadCallout(
 		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter) + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext(fwuid) + `&aura.pageURI=&aura.token="`)
+			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=&aura.token="`)
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -126,7 +125,7 @@ func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 
 	var trailheadData = doTrailheadCallout(
 		`message={"actions":[` + trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", "") + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext(fwuid) + `&aura.pageURI=&aura.token="`)
+			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=&aura.token="`)
 
 	if trailheadData.Actions != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -158,11 +157,13 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 		res, err := http.Get(trailblazerMe + userAlias)
 		if err != nil {
 			log.Println(err)
+			jsonError(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
 		}
 
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			log.Println(err)
+			jsonError(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
 		}
 
 		defer res.Body.Close()
@@ -170,7 +171,7 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 		userID := string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
 
 		if !strings.HasPrefix(userID, "005") {
-			writeJSONToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`'. Does this profile exist? Is it set to public?"}`)
+			jsonError(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`'. Does this profile exist? Is it set to public?"}`, 404)
 			return ""
 		}
 
@@ -182,13 +183,8 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 
 // doTrailheadCallout does the callout and returns the Apex REST response from Trailhead.
 func doTrailheadCallout(messagePayload string) trailhead.Data {
-	url := trailblazerMeApexExec
-	method := "POST"
-	payload := strings.NewReader(messagePayload)
-
 	client := &http.Client{}
-	req, err := http.NewRequest(method, url, payload)
-
+	req, err := http.NewRequest("POST", trailblazerMeApexExec, strings.NewReader(messagePayload))
 	if err != nil {
 		log.Println(err)
 	}
