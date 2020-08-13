@@ -18,7 +18,7 @@ const (
 	trailblazerMe         = "https://trailblazer.me/id/"
 	trailblazerMeUserID   = "https://trailblazer.me/id?cmty=trailhead&uid="
 	trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
-	fwuid                 = "7p9HLMpgnV2GO9MqZhXGUw"
+	fwuid                 = "axnV2upVY_ZFzdo18txAEw"
 )
 
 func main() {
@@ -50,7 +50,11 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
 			`&aura.context=` + trailhead.GetAuraContext(fwuid) + `&aura.pageURI=/id&aura.token="`)
 
-	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
+	if trailheadData.Actions != nil {
+		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
+	} else {
+		jsonError(w, `{"error":"No data returned from Trailhead."}`, 503)
+	}
 }
 
 // profileHandler gets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
@@ -68,11 +72,13 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	res, err := http.Get(calloutURL + userAlias)
 	if err != nil {
 		log.Println(err)
+		jsonError(w, `{"error":"Problem retrieving profile data."}`, 503)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err)
+		jsonError(w, `{"error":"Problem retrieving profile data."}`, 503)
 	}
 
 	jsonString := strings.Replace(string(body), "\\'", "\\\\'", -1)
@@ -81,6 +87,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	out, err := strconv.Unquote(jsonString)
 	if err != nil {
 		log.Println(err)
+		jsonError(w, `{"error":"Problem retrieving profile data."}`, 503)
 	}
 	out = strings.Replace(out, "\\'", "'", -1)
 

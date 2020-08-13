@@ -1,8 +1,6 @@
 package trailhead
 
-import (
-	"strings"
-)
+import "strings"
 
 // Data represent a response from trailhead.salesforce.com
 type Data struct {
@@ -77,15 +75,15 @@ func GetApexAction(className string, methodName string, userID string, skip stri
 
 	if filter != "" {
 		actionString += `,
-                    "filter":"` + strings.Title(filter) + `"`
+					"filter":"` + strings.Title(filter) + `"`
 	}
 
 	actionString += `
                 },
-                    "cacheable":false,
-                    "isContinuation":false
-                }
-            }`
+				"cacheable":false,
+				"isContinuation":false
+			}
+		}`
 
 	return actionString
 }
