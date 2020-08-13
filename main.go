@@ -14,10 +14,12 @@ import (
 	"github.com/meruff/go-trailhead-leaderboard-api/trailhead"
 )
 
-const trailblazerMe = "https://trailblazer.me/id/"
-const trailblazerMeUserID = "https://trailblazer.me/id?cmty=trailhead&uid="
-const trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
-const fwuid = "7p9HLMpgnV2GO9MqZhXGUw"
+const (
+	trailblazerMe         = "https://trailblazer.me/id/"
+	trailblazerMeUserID   = "https://trailblazer.me/id?cmty=trailhead&uid="
+	trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
+	fwuid                 = "7p9HLMpgnV2GO9MqZhXGUw"
+)
 
 func main() {
 	r := mux.NewRouter()
@@ -51,7 +53,7 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 }
 
-// profileHandler ets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
+// profileHandler gets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
 func profileHandler(w http.ResponseWriter, r *http.Request) {
 	var calloutURL string
 	vars := mux.Vars(r)
