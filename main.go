@@ -15,7 +15,13 @@ import (
 const trailblazerMe = "https://trailblazer.me/id/"
 const trailblazerMeUserID = "https://trailblazer.me/id?cmty=trailhead&uid="
 const trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
-const fwuid = "axnV2upVY_ZFzdo18txAEw"
+const trailblazerProfileAppConfig = "https://trailblazer.me/c/ProfileApp.app?aura.format=JSON&aura.formatAdapter=LIGHTNING_OUT"
+//const fwuid = "axnV2upVY_ZFzdo18txAEw"
+
+// Trailhead ProfileApp configuration for FwUid/DelegateVersion
+type ProfileAppConfig struct {
+	FwUid string `json:"delegateVersion"`
+}
 
 // TrailheadData represent a list of Users on trailhead.salesforce.com
 type TrailheadData struct {
@@ -269,7 +275,7 @@ func getAction(className string, methodName string, userID string, skip string, 
 func getAuraContext() string {
 	return `{
         "mode":"PROD",
-        "fwuid":"` + fwuid + `",
+        "fwuid":"` + getFwUid() + `",
         "app":"c:ProfileApp",
         "loaded":{
             "APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
@@ -280,6 +286,38 @@ func getAuraContext() string {
         },
         "uad":true
     }`
+}
+
+// Retrieves the fwuid from the profile app configuration
+// Should utilize a global variable and update it only when the call fails
+// Could also get the FwUid from the main and then it would just require a restart
+func getFwUid() string {
+	//return "axnV2upVY_ZFzdo18txAEw"
+	url := trailblazerProfileAppConfig
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Add("Referer", "https://trailblazer.me/id")
+	req.Header.Add("Origin", "https://trailblazer.me")
+	req.Header.Add("DNT", "1")
+	req.Header.Add("Connection", "keep-alive")
+
+	res, err := client.Do(req)
+	body, err := ioutil.ReadAll(res.Body)
+	var profileAppConfig ProfileAppConfig
+	json.Unmarshal(body, &profileAppConfig)
+
+	defer res.Body.Close()
+
+	return profileAppConfig.FwUid
 }
 
 // Simply writes a provided string to the browser in JSON format.
