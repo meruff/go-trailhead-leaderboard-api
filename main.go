@@ -16,7 +16,6 @@ import (
 
 const (
 	trailblazerMe         = "https://trailblazer.me/id/"
-	trailblazerMeUserID   = "https://trailblazer.me/id?cmty=trailhead&uid="
 	trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
 )
 
@@ -44,6 +43,10 @@ func main() {
 func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
+	if userID == "" {
+		writeErrorToBrowser(w, `{"error":"Could not find valid User for this handle."}`, 503)
+		return
+	}
 
 	var trailheadData = doTrailheadCallout(
 		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
@@ -52,41 +55,48 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 	} else {
-		jsonError(w, `{"error":"No data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
 	}
 }
 
 // profileHandler gets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
+// Uses a Trailblazer handle only, not an ID.
 func profileHandler(w http.ResponseWriter, r *http.Request) {
-	var calloutURL string
+	calloutURL := trailblazerMe
 	vars := mux.Vars(r)
 	userAlias := vars["id"]
-
 	if strings.HasPrefix(userAlias, "005") {
-		calloutURL = trailblazerMeUserID
-	} else {
-		calloutURL = trailblazerMe
+		writeErrorToBrowser(w, `{"error":"/profile requires a Trailblazer handle, not an ID as a parameter."}`, 503)
+		return
 	}
 
 	res, err := http.Get(calloutURL + userAlias)
 	if err != nil {
 		log.Println(err)
-		jsonError(w, `{"error":"Problem retrieving profile data."}`, 503)
+		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
+		return
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err)
-		jsonError(w, `{"error":"Problem retrieving profile data."}`, 503)
+		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
+		return
 	}
 
 	jsonString := strings.Replace(string(body), "\\'", "\\\\'", -1)
+	if !strings.Contains(jsonString, "var profileData = JSON.parse(") {
+		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
+		return
+	}
+
 	jsonString = jsonString[strings.Index(jsonString, "var profileData = JSON.parse(")+29 : strings.Index(jsonString, "trailblazer.me\\\"}\");")+18]
 
 	out, err := strconv.Unquote(jsonString)
 	if err != nil {
 		log.Println(err)
-		jsonError(w, `{"error":"Problem retrieving profile data."}`, 503)
+		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
+		return
 	}
 	out = strings.Replace(out, "\\'", "'", -1)
 
@@ -100,6 +110,11 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
+	if userID == "" {
+		writeErrorToBrowser(w, `{"error":"Could not find valid User for this handle."}`, 503)
+		return
+	}
+
 	badgesFilter := vars["filter"]
 	skip := vars["offset"]
 
@@ -114,7 +129,7 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
 	} else {
-		jsonError(w, `{"error":"No data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
 	}
 }
 
@@ -122,6 +137,10 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
+	if userID == "" {
+		writeErrorToBrowser(w, `{"error":"Could not find valid User for this handle."}`, 503)
+		return
+	}
 
 	var trailheadData = doTrailheadCallout(
 		`message={"actions":[` + trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", "") + `]}` +
@@ -131,7 +150,7 @@ func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(trailheadData.Actions[0].ReturnValue.ReturnValue.CertificationsResult)
 	} else {
-		jsonError(w, `{"error":"No data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
 	}
 }
 
@@ -148,22 +167,22 @@ func loggingHandler(next http.Handler) http.Handler {
 // catchAllHandler is the default message if no Trailblazer Id or handle is provided,
 // or if the u	ser has navigated to an unsupported page.
 func catchAllHandler(w http.ResponseWriter, r *http.Request) {
-	jsonError(w, `{"error":"Please provide a valid Trialhead user Id/handle or visit a valid URL. Example: /trailblazer/{id}"}`, 501)
+	writeErrorToBrowser(w, `{"error":"Please provide a valid Trialhead user Id/handle or visit a valid URL. Example: /trailblazer/{id}"}`, 501)
 }
 
-// getTrailheadID gets the Trailblazer's user Id from Trailhead, if provided with a custom user handle i.e. "matruff" => "0051I000004XSMrQAO"
+// getTrailheadID gets the Trailblazer's user Id from Trailhead, if provided with a custom user handle i.e. "matruff" => "0051I000004UgTlQAK"
 func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	if !strings.HasPrefix(userAlias, "005") {
 		res, err := http.Get(trailblazerMe + userAlias)
 		if err != nil {
 			log.Println(err)
-			jsonError(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
+			writeErrorToBrowser(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
 		}
 
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			log.Println(err)
-			jsonError(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
+			writeErrorToBrowser(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
 		}
 
 		defer res.Body.Close()
@@ -171,7 +190,7 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 		userID := string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
 
 		if !strings.HasPrefix(userID, "005") {
-			jsonError(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`'. Does this profile exist? Is it set to public?"}`, 404)
+			writeErrorToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`'. Does this profile exist? Is it set to public?"}`, 404)
 			return ""
 		}
 
@@ -213,8 +232,8 @@ func writeJSONToBrowser(w http.ResponseWriter, message string) {
 	w.Write([]byte(message))
 }
 
-// jsonError writes an HTTP error to the broswer in JSON.
-func jsonError(w http.ResponseWriter, err string, code int) {
+// writeErrorToBrowser writes an HTTP error to the broswer in JSON.
+func writeErrorToBrowser(w http.ResponseWriter, err string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write([]byte(err))
