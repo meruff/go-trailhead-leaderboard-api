@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -10,14 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"./trailhead"
 	"github.com/gorilla/mux"
-	"github.com/meruff/go-trailhead-leaderboard-api/trailhead"
 )
 
 const (
-	trailblazerMe         = "https://trailblazer.me/id/"
-	trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
+	trailblazerMe               = "https://trailblazer.me/id/"
+	trailblazerMeApexExec       = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
+	trailblazerProfileAppConfig = "https://trailblazer.me/c/ProfileApp.app?aura.format=JSON&aura.formatAdapter=LIGHTNING_OUT"
 )
+
+var auraConfig = trailhead.AuraConfig{FwUid: ""}
 
 func main() {
 	r := mux.NewRouter()
@@ -48,9 +52,7 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var trailheadData = doTrailheadCallout(
-		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=/id&aura.token="`)
+	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", ""), "/id")
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -122,9 +124,7 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 		skip = "0"
 	}
 
-	var trailheadData = doTrailheadCallout(
-		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter) + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=&aura.token="`)
+	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter), "")
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -142,9 +142,7 @@ func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var trailheadData = doTrailheadCallout(
-		`message={"actions":[` + trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", "") + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=&aura.token="`)
+	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", ""), "")
 
 	if trailheadData.Actions != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -198,6 +196,59 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	}
 
 	return userAlias
+}
+
+func doTrailheadAuraCallout(apexAction string, pageURI string) trailhead.Data {
+	// If config has been retrieved, try aura call
+	if 0 != len(auraConfig.FwUid) {
+		var trailheadData = doTrailheadCallout(
+			`message={"actions":[` + apexAction + `]}` +
+				`&aura.context=` + trailhead.GetAuraContext(auraConfig) + `&aura.pageURI=` + pageURI + `&aura.token="`)
+		// If the response is nil, try getting the new fwuid before failing
+		if trailheadData.Actions != nil {
+			return trailheadData
+		}
+	}
+
+	// Get fwuid from profile app config
+	updateAuraProfileAppConfig()
+
+	// Make aura call
+	if 0 != len(auraConfig.FwUid) {
+		return doTrailheadCallout(
+			`message={"actions":[` + apexAction + `]}` +
+				`&aura.context=` + trailhead.GetAuraContext(auraConfig) + `&aura.pageURI=` + pageURI + `&aura.token="`)
+	}
+
+	return trailhead.Data{Actions: nil}
+}
+
+// Aquire Profile App Config
+func updateAuraProfileAppConfig() {
+	//return "axnV2upVY_ZFzdo18txAEw"
+	url := trailblazerProfileAppConfig
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Add("Referer", "https://trailblazer.me/id")
+	req.Header.Add("Origin", "https://trailblazer.me")
+	req.Header.Add("DNT", "1")
+	req.Header.Add("Connection", "keep-alive")
+
+	res, err := client.Do(req)
+	body, err := ioutil.ReadAll(res.Body)
+
+	json.Unmarshal(body, &auraConfig)
+
+	defer res.Body.Close()
 }
 
 // doTrailheadCallout does the callout and returns the Apex REST response from Trailhead.
