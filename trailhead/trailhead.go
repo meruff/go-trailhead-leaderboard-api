@@ -35,25 +35,11 @@ type Data struct {
 	} `json:"context"`
 }
 
-type AuraConfig struct {
-	FwUid string `json:"delegateVersion"`
-}
-
-// GetAuraContext returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
-func GetAuraContext(auraConfig AuraConfig) string {
-	return `{
-        "mode":"PROD",
-        "fwuid":"` + auraConfig.FwUid + `",
-        "app":"c:ProfileApp",
-        "loaded":{
-            "APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
-        },
-        "dn":[],
-        "globals":{
-            "srcdoc":true
-        },
-        "uad":true
-    }`
+// ProfileAppConfig represents the full configuration for the Salesforce Trailhead profile app
+type ProfileAppConfig struct {
+	AuraConfig struct {
+		Context interface{} `json:"context"`
+	} `json:"auraConfig"`
 }
 
 // GetApexAction returns a JSON string representing an Apex action to be used in the callout to Trailhead.

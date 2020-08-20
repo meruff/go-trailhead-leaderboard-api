@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -21,7 +20,7 @@ const (
 	trailblazerProfileAppConfig = "https://trailblazer.me/c/ProfileApp.app?aura.format=JSON&aura.formatAdapter=LIGHTNING_OUT"
 )
 
-var auraConfig = trailhead.AuraConfig{FwUid: ""}
+var auraContext = ""
 
 func main() {
 	r := mux.NewRouter()
@@ -185,10 +184,26 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 
 		defer res.Body.Close()
 
-		userID := string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
+		var strBody = string(body)
+		var userID = ""
+
+		// Find userID from cuid
+		var index = strings.Index(strBody, "cuid: '")
+		if -1 != index {
+			var deltaIndex = strings.Index(string(strBody[index:index+55]), "005")
+			if -1 != deltaIndex {
+				userID = string(strBody[index+deltaIndex : index+deltaIndex+18])
+			}
+		}
+
+		// If cuid is not sucessful, fall back to uid
+		if !strings.HasPrefix(userID, "005") {
+			index = strings.Index(strBody, "uid: '005")
+			userID = string(strBody[index+6 : index+24])
+		}
 
 		if !strings.HasPrefix(userID, "005") {
-			writeErrorToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`'. Does this profile exist? Is it set to public?"}`, 404)
+			writeErrorToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`(`+userID+`)'. Does this profile exist? Is it set to public?"}`+strBody, 404)
 			return ""
 		}
 
@@ -198,34 +213,37 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	return userAlias
 }
 
+// doTrailheadAuraCallout wraps doTrailheadCallout specifically for calls to the Profile App for Aura which needs the FwUID.
+// It will retreive the FwUID if unknown or if the initial call fails and retry the call so that the calling method does not
+// need to know about the FwUID
 func doTrailheadAuraCallout(apexAction string, pageURI string) trailhead.Data {
 	// If config has been retrieved, try aura call
-	if 0 != len(auraConfig.FwUid) {
+	if 0 != len(auraContext) {
 		var trailheadData = doTrailheadCallout(
 			`message={"actions":[` + apexAction + `]}` +
-				`&aura.context=` + trailhead.GetAuraContext(auraConfig) + `&aura.pageURI=` + pageURI + `&aura.token="`)
-		// If the response is nil, try getting the new fwuid before failing
+				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
+		// If the response is not nil, call was successful
 		if trailheadData.Actions != nil {
 			return trailheadData
 		}
+		// Else  the response is nil, try getting the new fwuid and retry call before failing
 	}
 
 	// Get fwuid from profile app config
 	updateAuraProfileAppConfig()
 
 	// Make aura call
-	if 0 != len(auraConfig.FwUid) {
+	if 0 != len(auraContext) {
 		return doTrailheadCallout(
 			`message={"actions":[` + apexAction + `]}` +
-				`&aura.context=` + trailhead.GetAuraContext(auraConfig) + `&aura.pageURI=` + pageURI + `&aura.token="`)
+				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
 	}
 
 	return trailhead.Data{Actions: nil}
 }
 
-// Aquire Profile App Config
+// updateAuraProfileAppConfig retrives the profile app config to extract the aura context
 func updateAuraProfileAppConfig() {
-	//return "axnV2upVY_ZFzdo18txAEw"
 	url := trailblazerProfileAppConfig
 	method := "GET"
 
@@ -233,7 +251,7 @@ func updateAuraProfileAppConfig() {
 	req, err := http.NewRequest(method, url, nil)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	req.Header.Add("Accept", "*/*")
@@ -246,7 +264,16 @@ func updateAuraProfileAppConfig() {
 	res, err := client.Do(req)
 	body, err := ioutil.ReadAll(res.Body)
 
-	json.Unmarshal(body, &auraConfig)
+	// Deserialize the entire app config
+	var profileAppConfig trailhead.ProfileAppConfig
+	json.Unmarshal(body, &profileAppConfig)
+
+	// Serialize the aura config context
+	bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context)
+	if err != nil {
+		log.Println(err)
+	}
+	auraContext = string(bytes)
 
 	defer res.Body.Close()
 }
