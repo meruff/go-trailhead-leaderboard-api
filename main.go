@@ -274,19 +274,6 @@ func updateAuraProfileAppConfig() {
 	} else {
 		auraContext = ""
 	}
-	/*if 0 != len(profileAppConfig.AuraConfig.Context.FwUID) {
-		//profileAppConfig.AuraConfig.Context.Dn = []
-		profileAppConfig.AuraConfig.Context.Globals = struct { SrcDoc: true }
-		profileAppConfig.AuraConfig.Context.Uad = true
-	}
-
-	// Serialize the aura config context
-	bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context)
-	if err != nil {
-		log.Println(err)
-	}
-	auraContext = string(bytes)*/
-
 }
 
 // doTrailheadCallout does the callout and returns the Apex REST response from Trailhead.
