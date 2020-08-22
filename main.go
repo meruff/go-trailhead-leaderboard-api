@@ -16,7 +16,7 @@ import (
 
 const (
 	trailblazerMe               = "https://trailblazer.me/id/"
-	trailblazerMeApexExec       = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
+	trailblazerMeApexExec       = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=2"
 	trailblazerProfileAppConfig = "https://trailblazer.me/c/ProfileApp.app?aura.format=JSON&aura.formatAdapter=LIGHTNING_OUT"
 )
 
@@ -187,16 +187,12 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 		var strBody = string(body)
 		var userID = ""
 
-		// Find userID from cuid
-		var index = strings.Index(strBody, "cuid: '")
+		// Find userID
+		var index = strings.Index(strBody, `"TBIDUserId__c":"005`)
 		if -1 != index {
-			var deltaIndex = strings.Index(string(strBody[index:index+55]), "005")
-			if -1 != deltaIndex {
-				userID = string(strBody[index+deltaIndex : index+deltaIndex+18])
-			}
+			userID = string(strBody[index+17 : index+35])
 		}
-
-		// If cuid is not sucessful, fall back to uid
+		// Fall back to uid
 		if !strings.HasPrefix(userID, "005") {
 			index = strings.Index(strBody, "uid: '005")
 			userID = string(strBody[index+6 : index+24])
@@ -267,15 +263,30 @@ func updateAuraProfileAppConfig() {
 	// Deserialize the entire app config
 	var profileAppConfig trailhead.ProfileAppConfig
 	json.Unmarshal(body, &profileAppConfig)
+	defer res.Body.Close()
+
+	if 0 != len(profileAppConfig.AuraConfig.Context.FwUID) {
+		bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context.Loaded)
+		if err != nil {
+			log.Println(err)
+		}
+		auraContext = trailhead.GetAuraContext(profileAppConfig.AuraConfig.Context.FwUID, string(bytes))
+	} else {
+		auraContext = ""
+	}
+	/*if 0 != len(profileAppConfig.AuraConfig.Context.FwUID) {
+		//profileAppConfig.AuraConfig.Context.Dn = []
+		profileAppConfig.AuraConfig.Context.Globals = struct { SrcDoc: true }
+		profileAppConfig.AuraConfig.Context.Uad = true
+	}
 
 	// Serialize the aura config context
 	bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context)
 	if err != nil {
 		log.Println(err)
 	}
-	auraContext = string(bytes)
+	auraContext = string(bytes)*/
 
-	defer res.Body.Close()
 }
 
 // doTrailheadCallout does the callout and returns the Apex REST response from Trailhead.
