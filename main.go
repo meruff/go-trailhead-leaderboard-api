@@ -15,9 +15,12 @@ import (
 )
 
 const (
-	trailblazerMe         = "https://trailblazer.me/id/"
-	trailblazerMeApexExec = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=1"
+	trailblazerMe               = "https://trailblazer.me/id/"
+	trailblazerMeApexExec       = "https://trailblazer.me/aura?r=0&aura.ApexAction.execute=2"
+	trailblazerProfileAppConfig = "https://trailblazer.me/c/ProfileApp.app?aura.format=JSON&aura.formatAdapter=LIGHTNING_OUT"
 )
+
+var auraContext = ""
 
 func main() {
 	r := mux.NewRouter()
@@ -48,9 +51,7 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var trailheadData = doTrailheadCallout(
-		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", "") + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=/id&aura.token="`)
+	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", ""), "/id")
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -122,9 +123,7 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 		skip = "0"
 	}
 
-	var trailheadData = doTrailheadCallout(
-		`message={"actions":[` + trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter) + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=&aura.token="`)
+	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter), "")
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -142,9 +141,7 @@ func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var trailheadData = doTrailheadCallout(
-		`message={"actions":[` + trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", "") + `]}` +
-			`&aura.context=` + trailhead.GetAuraContext() + `&aura.pageURI=&aura.token="`)
+	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", ""), "")
 
 	if trailheadData.Actions != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -187,10 +184,22 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 
 		defer res.Body.Close()
 
-		userID := string(string(body)[strings.Index(string(body), "uid: ")+6 : strings.Index(string(body), "uid: ")+24])
+		var strBody = string(body)
+		var userID = ""
+
+		// Find userID
+		var index = strings.Index(strBody, `"TBIDUserId__c":"005`)
+		if -1 != index {
+			userID = string(strBody[index+17 : index+35])
+		}
+		// Fall back to uid
+		if !strings.HasPrefix(userID, "005") {
+			index = strings.Index(strBody, "uid: '005")
+			userID = string(strBody[index+6 : index+24])
+		}
 
 		if !strings.HasPrefix(userID, "005") {
-			writeErrorToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`'. Does this profile exist? Is it set to public?"}`, 404)
+			writeErrorToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`(`+userID+`)'. Does this profile exist? Is it set to public?"}`+strBody, 404)
 			return ""
 		}
 
@@ -198,6 +207,73 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	}
 
 	return userAlias
+}
+
+// doTrailheadAuraCallout wraps doTrailheadCallout specifically for calls to the Profile App for Aura which needs the FwUID.
+// It will retreive the FwUID if unknown or if the initial call fails and retry the call so that the calling method does not
+// need to know about the FwUID
+func doTrailheadAuraCallout(apexAction string, pageURI string) trailhead.Data {
+	// If config has been retrieved, try aura call
+	if 0 != len(auraContext) {
+		var trailheadData = doTrailheadCallout(
+			`message={"actions":[` + apexAction + `]}` +
+				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
+		// If the response is not nil, call was successful
+		if trailheadData.Actions != nil {
+			return trailheadData
+		}
+		// Else  the response is nil, try getting the new fwuid and retry call before failing
+	}
+
+	// Get fwuid from profile app config
+	updateAuraProfileAppConfig()
+
+	// Make aura call
+	if 0 != len(auraContext) {
+		return doTrailheadCallout(
+			`message={"actions":[` + apexAction + `]}` +
+				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
+	}
+
+	return trailhead.Data{Actions: nil}
+}
+
+// updateAuraProfileAppConfig retrives the profile app config to extract the aura context
+func updateAuraProfileAppConfig() {
+	url := trailblazerProfileAppConfig
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Add("Referer", "https://trailblazer.me/id")
+	req.Header.Add("Origin", "https://trailblazer.me")
+	req.Header.Add("DNT", "1")
+	req.Header.Add("Connection", "keep-alive")
+
+	res, err := client.Do(req)
+	body, err := ioutil.ReadAll(res.Body)
+
+	// Deserialize the entire app config
+	var profileAppConfig trailhead.ProfileAppConfig
+	json.Unmarshal(body, &profileAppConfig)
+	defer res.Body.Close()
+
+	if 0 != len(profileAppConfig.AuraConfig.Context.FwUID) {
+		bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context.Loaded)
+		if err != nil {
+			log.Println(err)
+		}
+		auraContext = trailhead.GetAuraContext(profileAppConfig.AuraConfig.Context.FwUID, string(bytes))
+	} else {
+		auraContext = ""
+	}
 }
 
 // doTrailheadCallout does the callout and returns the Apex REST response from Trailhead.

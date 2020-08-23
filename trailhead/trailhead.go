@@ -2,8 +2,6 @@ package trailhead
 
 import "strings"
 
-const fwuid = "axnV2upVY_ZFzdo18txAEw"
-
 // Data represent a response from trailhead.salesforce.com
 type Data struct {
 	Actions []struct {
@@ -37,15 +35,23 @@ type Data struct {
 	} `json:"context"`
 }
 
+// ProfileAppConfig represents the full configuration for the Salesforce Trailhead profile app
+type ProfileAppConfig struct {
+	AuraConfig struct {
+		Context struct {
+			FwUID  string      `json:"fwuid"`
+			Loaded interface{} `json:"loaded"`
+		} `json:"context"`
+	} `json:"auraConfig"`
+}
+
 // GetAuraContext returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
-func GetAuraContext() string {
+func GetAuraContext(fwUID string, loaded string) string {
 	return `{
         "mode":"PROD",
-        "fwuid":"` + fwuid + `",
+        "fwuid":"` + fwUID + `",
         "app":"c:ProfileApp",
-        "loaded":{
-            "APPLICATION@markup://c:ProfileApp":"ZoNFIdcxHaEP9RDPdsobUQ"
-        },
+        "loaded":`+ loaded + `,
         "dn":[],
         "globals":{
             "srcdoc":true
