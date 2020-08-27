@@ -47,11 +47,10 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
 	if userID == "" {
-		writeErrorToBrowser(w, `{"error":"Could not find valid User for this handle."}`, 503)
 		return
 	}
 
-	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", ""), "/id")
+	trailheadData := doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadData", userID, "", ""), "/id")
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -63,7 +62,6 @@ func trailblazerHandler(w http.ResponseWriter, r *http.Request) {
 // profileHandler gets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
 // Uses a Trailblazer handle only, not an ID.
 func profileHandler(w http.ResponseWriter, r *http.Request) {
-	calloutURL := trailblazerMe
 	vars := mux.Vars(r)
 	userAlias := vars["id"]
 	if strings.HasPrefix(userAlias, "005") {
@@ -71,7 +69,11 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := http.Get(calloutURL + userAlias)
+	res, err := http.Get(trailblazerMe + userAlias)
+	if res != nil {
+		defer res.Body.Close()
+	}
+
 	if err != nil {
 		log.Println(err)
 		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
@@ -101,8 +103,6 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	out = strings.Replace(out, "\\'", "'", -1)
 
-	defer res.Body.Close()
-
 	writeJSONToBrowser(w, out)
 }
 
@@ -112,18 +112,15 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
 	if userID == "" {
-		writeErrorToBrowser(w, `{"error":"Could not find valid User for this handle."}`, 503)
 		return
 	}
 
-	badgesFilter := vars["filter"]
-	skip := vars["offset"]
-
+	skip, badgesFilter := vars["offset"], vars["filter"]
 	if skip == "" {
 		skip = "0"
 	}
 
-	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter), "")
+	trailheadData := doTrailheadAuraCallout(trailhead.GetApexAction("TrailheadProfileService", "fetchTrailheadBadges", userID, skip, badgesFilter), "")
 
 	if trailheadData.Actions != nil {
 		writeJSONToBrowser(w, trailheadData.Actions[0].ReturnValue.ReturnValue.Body)
@@ -137,11 +134,10 @@ func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
 	if userID == "" {
-		writeErrorToBrowser(w, `{"error":"Could not find valid User for this handle."}`, 503)
 		return
 	}
 
-	var trailheadData = doTrailheadAuraCallout(trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", ""), "")
+	trailheadData := doTrailheadAuraCallout(trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", ""), "")
 
 	if trailheadData.Actions != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -171,6 +167,10 @@ func catchAllHandler(w http.ResponseWriter, r *http.Request) {
 func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	if !strings.HasPrefix(userAlias, "005") {
 		res, err := http.Get(trailblazerMe + userAlias)
+		if res != nil {
+			defer res.Body.Close()
+		}
+
 		if err != nil {
 			log.Println(err)
 			writeErrorToBrowser(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
@@ -182,22 +182,31 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 			writeErrorToBrowser(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
 		}
 
-		defer res.Body.Close()
+		userID, strBody := "", string(body)
 
-		var strBody = string(body)
-		var userID = ""
-
-		// Find userID
+		// Try finding userID using TDIDUserId__c if present in response.
 		var index = strings.Index(strBody, `"TBIDUserId__c":"005`)
 		if -1 != index {
 			userID = string(strBody[index+17 : index+35])
 		}
-		// Fall back to uid
+		
+		// Try parsing userID from profileData.
 		if !strings.HasPrefix(userID, "005") {
-			index = strings.Index(strBody, "uid: '005")
-			userID = string(strBody[index+6 : index+24])
+			index = strings.Index(strBody, `\"Id\":\"`)
+			if -1 != index {
+				userID = string(strBody[index+9 : index+27])
+			}
 		}
 
+		// Fall back to trying uid.
+		if !strings.HasPrefix(userID, "005") {
+			index = strings.Index(strBody, "uid: '005")
+			if -1 != index {
+				userID = string(strBody[index+6 : index+24])
+			}
+		}
+
+		// If no ID found, write to browser and return empty string.
 		if !strings.HasPrefix(userID, "005") {
 			writeErrorToBrowser(w, `{"error":"Could not find Trailhead ID for user: '`+userAlias+`(`+userID+`)'. Does this profile exist? Is it set to public?"}`+strBody, 404)
 			return ""
@@ -240,12 +249,8 @@ func doTrailheadAuraCallout(apexAction string, pageURI string) trailhead.Data {
 
 // updateAuraProfileAppConfig retrives the profile app config to extract the aura context
 func updateAuraProfileAppConfig() {
-	url := trailblazerProfileAppConfig
-	method := "GET"
-
 	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-
+	req, err := http.NewRequest("GET", trailblazerProfileAppConfig, nil)
 	if err != nil {
 		log.Println(err)
 	}
@@ -258,12 +263,19 @@ func updateAuraProfileAppConfig() {
 	req.Header.Add("Connection", "keep-alive")
 
 	res, err := client.Do(req)
+	if res != nil {
+		defer res.Body.Close()
+	}
+
+	if err != nil {
+		log.Println(err)
+	}
+
 	body, err := ioutil.ReadAll(res.Body)
 
 	// Deserialize the entire app config
 	var profileAppConfig trailhead.ProfileAppConfig
 	json.Unmarshal(body, &profileAppConfig)
-	defer res.Body.Close()
 
 	if 0 != len(profileAppConfig.AuraConfig.Context.FwUID) {
 		bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context.Loaded)
@@ -293,11 +305,17 @@ func doTrailheadCallout(messagePayload string) trailhead.Data {
 	req.Header.Add("Connection", "keep-alive")
 
 	res, err := client.Do(req)
+	if res != nil {
+		defer res.Body.Close()
+	}
+
+	if err != nil {
+		log.Println(err)
+	}
+
 	body, err := ioutil.ReadAll(res.Body)
 	var trailheadData trailhead.Data
 	json.Unmarshal(body, &trailheadData)
-
-	defer res.Body.Close()
 
 	return trailheadData
 }
