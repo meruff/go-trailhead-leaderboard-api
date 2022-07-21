@@ -1,0 +1,2 @@
+# Remove vendor so Heroku will just install the dependencies.
+vendor/
