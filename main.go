@@ -147,8 +147,8 @@ func rankHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// badgeshandler gets badges the Trailblazer has earned. Returns first 30. Optionally can
-// provide filter criteria, or offset i.e. "event" type badges, offset by 30.
+// badgeshandler gets badges the Trailblazer has earned. Returns first 8. Optionally can
+// provide filter criteria, or additional return count. i.e. "event" type badges, count by 30.
 func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := getTrailheadID(w, vars["id"])
@@ -159,27 +159,32 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter, after, count := vars["filter"], vars["after"], vars["count"]
-
-	if filter == "" {
-		filter = "MODULE"
-	} else {
-		filter = strings.ToUpper(filter)
-	}
-
 	countConvert, err := strconv.Atoi(count)
 
-	if countConvert == 0 {
-		countConvert = 8
+	// Create the request
+	var badgeRequestStruct = trailhead.BadgeRequest{QueryProfile: true, TrailblazerId: userID}
+
+	// Set filter
+	if contains(getValidBadgeFilters(), filter) {
+		var upperFilter = strings.ToUpper(filter)
+		badgeRequestStruct.Filter = &upperFilter
+	} else if filter != "all" {
+		writeErrorToBrowser(w, `{"error":"Expected badge filter to be one of: MODULE, PROJECT, SUPERBADGE, EVENT, STANDALONE."}`, 501)
 	}
 
-	badgeRequestBody, err := json.Marshal(trailhead.BadgeRequest{
-		QueryProfile:  true,
-		TrailblazerId: userID,
-		Filter:        filter,
-		After:         after,
-		Count:         countConvert})
+	// Set count
+	if countConvert != 0 {
+		badgeRequestStruct.Count = countConvert
+	} else {
+		badgeRequestStruct.Count = 8
+	}
 
-	log.Println(string(badgeRequestBody))
+	// Set after
+	if after != "" {
+		badgeRequestStruct.After = &after
+	}
+
+	badgeRequestBody, err := json.Marshal(badgeRequestStruct)
 	responseBody, err := doSupabaseCallout(badgesUrl, string(badgeRequestBody))
 
 	if err != nil {
@@ -428,4 +433,20 @@ func writeErrorToBrowser(w http.ResponseWriter, err string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write([]byte(err))
+}
+
+// contains simply checks if a string exists inside a slice.
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getValidBadgeFilters returns a slice containing valid filters for Trailblazer badges.
+func getValidBadgeFilters() []string {
+	return []string{"module", "project", "superbadge", "event", "standalone"}
 }

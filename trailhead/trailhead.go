@@ -47,11 +47,11 @@ type ProfileAppConfig struct {
 
 // BadgeRequest represents a request to the /badges endpoint. The variables to send to graphql
 type BadgeRequest struct {
-	QueryProfile  bool   `json:"queryProfile"`
-	TrailblazerId string `json:"trailblazerId"`
-	Filter        string `json:"filter"`
-	After         string `json:"after"`
-	Count         int    `json:"count"`
+	QueryProfile  bool    `json:"queryProfile"`
+	TrailblazerId string  `json:"trailblazerId"`
+	Filter        *string `json:"filter"`
+	After         *string `json:"after"`
+	Count         int     `json:"count"`
 }
 
 // GetAuraContext returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
