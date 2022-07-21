@@ -36,7 +36,7 @@ func main() {
 	r.HandleFunc("/trailblazer/{id}/skills", skillsHandler)
 	r.HandleFunc("/trailblazer/{id}/certifications", certificationsHandler)
 	r.HandleFunc("/trailblazer/{id}/badges", badgesHandler)
-	r.HandleFunc("/trailblazer/{id}/badges/{count}", badgesHandler)
+	r.HandleFunc("/trailblazer/{id}/badges/{filter}", badgesHandler)
 	r.HandleFunc("/trailblazer/{id}/badges/{filter}/{count}", badgesHandler)
 	r.HandleFunc("/trailblazer/{id}/badges/{filter}/{count}/{after}", badgesHandler)
 	r.PathPrefix("/").HandlerFunc(catchAllHandler)
