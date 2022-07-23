@@ -2,7 +2,7 @@ package trailhead
 
 import "strings"
 
-// Data represent a response from trailhead.salesforce.com
+// Data represents a response from trailhead.
 type Data struct {
 	Actions []struct {
 		ID          string `json:"id"`
@@ -33,6 +33,82 @@ type Data struct {
 	Context struct {
 		Fwuid string `json:"fwuid"`
 	} `json:"context"`
+}
+
+// Rank represents skill data returned from trailhead.
+type Rank struct {
+	Profile struct {
+		Typename       string `json:"__typename"`
+		TrailheadStats struct {
+			Typename            string `json:"__typename"`
+			EarnedPointsSum     int    `json:"earnedPointsSum"`
+			EarnedBadgesCount   int    `json:"earnedBadgesCount"`
+			CompletedTrailCount int    `json:"completedTrailCount"`
+			Rank                struct {
+				Typename            string `json:"__typename"`
+				Title               string `json:"title"`
+				RequiredPointsSum   int    `json:"requiredPointsSum"`
+				RequiredBadgesCount int    `json:"requiredBadgesCount"`
+				ImageURL            string `json:"imageUrl"`
+			} `json:"rank"`
+			NextRank interface{} `json:"nextRank"`
+		} `json:"trailheadStats"`
+	} `json:"profile"`
+}
+
+// Skills represents skill data returned from trailhead.
+type Skills struct {
+	Profile struct {
+		Typename     string `json:"__typename"`
+		EarnedSkills []struct {
+			Typename               string `json:"__typename"`
+			EarnedPointsSum        int    `json:"earnedPointsSum"`
+			ID                     string `json:"id"`
+			ItemProgressEntryCount int    `json:"itemProgressEntryCount"`
+			Skill                  struct {
+				Typename string `json:"__typename"`
+				APIName  string `json:"apiName"`
+				ID       string `json:"id"`
+				Name     string `json:"name"`
+			} `json:"skill"`
+		} `json:"earnedSkills"`
+	} `json:"profile"`
+}
+
+// Badges represents skill data returned from trailhead.
+type Badges struct {
+	Profile struct {
+		Typename     string `json:"__typename"`
+		EarnedAwards struct {
+			Edges []struct {
+				Node struct {
+					Typename string `json:"__typename"`
+					ID       string `json:"id"`
+					Award    struct {
+						Typename string `json:"__typename"`
+						ID       string `json:"id"`
+						Title    string `json:"title"`
+						Type     string `json:"type"`
+						Icon     string `json:"icon"`
+						Content  struct {
+							Typename    string `json:"__typename"`
+							WebURL      string `json:"webUrl"`
+							Description string `json:"description"`
+						} `json:"content"`
+					} `json:"award"`
+					EarnedAt        string `json:"earnedAt"`
+					EarnedPointsSum string `json:"earnedPointsSum"`
+				} `json:"node"`
+			} `json:"edges"`
+			PageInfo struct {
+				Typename        string `json:"__typename"`
+				EndCursor       string `json:"endCursor"`
+				HasNextPage     bool   `json:"hasNextPage"`
+				StartCursor     string `json:"startCursor"`
+				HasPreviousPage bool   `json:"hasPreviousPage"`
+			} `json:"pageInfo"`
+		} `json:"earnedAwards"`
+	} `json:"profile"`
 }
 
 // ProfileAppConfig represents the full configuration for the Salesforce Trailhead profile app

@@ -4,7 +4,7 @@ A [Golang](https://go.dev) app that runs on [Heroku](https://heroku.com) to make
 
 > 🚨 Note: In order to retrieve data for a specific Trailhead User, they must have their profile set to public.
 
-Trailhead changes their services occasionally so this an break at any time!
+Trailhead changes their services occasionally so this can break at any time!
 
 ## Installation
 
