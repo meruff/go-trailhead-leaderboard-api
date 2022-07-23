@@ -118,10 +118,13 @@ func skillsHandler(w http.ResponseWriter, r *http.Request) {
 		"trailblazerId": "%s"
 	}`, userID))
 
+	var trailheadSkillsData trailhead.Skills
+	json.Unmarshal([]byte(responseBody), &trailheadSkillsData)
+
 	if err != nil {
 		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
-	} else {
-		writeJSONToBrowser(w, responseBody)
+	} else if trailheadSkillsData.Profile.EarnedSkills != nil {
+		encodeAndWriteToBrowser(w, trailheadSkillsData)
 	}
 }
 
@@ -140,10 +143,13 @@ func rankHandler(w http.ResponseWriter, r *http.Request) {
 		"trailblazerId": "%s"
 	}`, userID))
 
+	var trailheadRankData trailhead.Rank
+	json.Unmarshal([]byte(responseBody), &trailheadRankData)
+
 	if err != nil {
 		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
-	} else {
-		writeJSONToBrowser(w, responseBody)
+	} else if trailheadRankData.Profile.TrailheadStats.Typename != "" {
+		encodeAndWriteToBrowser(w, trailheadRankData)
 	}
 }
 
@@ -168,8 +174,9 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	if contains(getValidBadgeFilters(), filter) {
 		var upperFilter = strings.ToUpper(filter)
 		badgeRequestStruct.Filter = &upperFilter
-	} else if filter != "all" {
+	} else if filter != "all" && filter != "" {
 		writeErrorToBrowser(w, `{"error":"Expected badge filter to be one of: MODULE, PROJECT, SUPERBADGE, EVENT, STANDALONE."}`, 501)
+		return
 	}
 
 	// Set count
@@ -187,10 +194,13 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	badgeRequestBody, err := json.Marshal(badgeRequestStruct)
 	responseBody, err := doSupabaseCallout(badgesUrl, string(badgeRequestBody))
 
+	var trailheadBadgeData trailhead.Badges
+	json.Unmarshal([]byte(responseBody), &trailheadBadgeData)
+
 	if err != nil {
 		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
-	} else {
-		writeJSONToBrowser(w, responseBody)
+	} else if trailheadBadgeData.Profile.EarnedAwards.Edges != nil {
+		encodeAndWriteToBrowser(w, trailheadBadgeData)
 	}
 }
 
@@ -433,6 +443,12 @@ func writeErrorToBrowser(w http.ResponseWriter, err string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write([]byte(err))
+}
+
+// encodeAndWriteToBrowser encodes a given interface and writes it to the browser as JSON.
+func encodeAndWriteToBrowser(w http.ResponseWriter, i interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(i)
 }
 
 // contains simply checks if a string exists inside a slice.
