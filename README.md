@@ -1,20 +1,12 @@
 # Trailhead Leaderboard API
 
-A [Golang](https://go.dev) app that runs on [Heroku](https://heroku.com) to make callouts to `trailblazer.me/` and retrieves Trailblazer User data which can then be used in other applications. I recommend cloning this and running in your own Heroku instance.
+A [Golang](https://go.dev) app that makes callouts to `trailblazer.me/` and retrieves Trailblazer User data which can then be used in other applications.
 
 > 🚨 Note: In order to retrieve data for a specific Trailhead User, they must have their profile set to public.
 
 Trailhead changes their services occasionally so this can break at any time!
 
 ## Installation
-
-Create a new Heroku app and push the source up. See the [Heroku docs](https://devcenter.heroku.com/articles/getting-started-with-go#deploy-the-app) for how to deploy the app.
-
-```bash
-$ heroku create
-$ git push heroku master
-$ heroku open
-```
 
 If you have Go [installed](https://golang.org/doc/install), you can run it locally by using the `run` command on `main.go`.
 
