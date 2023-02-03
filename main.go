@@ -47,6 +47,7 @@ func main() {
 
 	if port == "" {
 		http.ListenAndServe(":8000", nil)
+		fmt.Println("Server started")
 	} else {
 		http.ListenAndServe(":"+os.Getenv("PORT"), nil)
 	}

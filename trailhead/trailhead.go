@@ -158,7 +158,8 @@ func GetApexAction(className string, methodName string, userID string, skip stri
                 "method":"` + methodName + `",
                 "params":{
                     "userId":"` + userID + `",
-                    "language":"en-US"`
+                    "language":"en-US",
+					"featureAdditionalCerts": true`
 
 	if skip != "" {
 		actionString += `,
