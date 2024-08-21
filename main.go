@@ -160,6 +160,9 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 
 	filter, after, count := vars["filter"], vars["after"], vars["count"]
 	countConvert, err := strconv.Atoi(count)
+	if err != nil {
+		log.Println("Error parsing badge count from params.")
+	}
 
 	// Create the request
 	var badgeRequestStruct = trailhead.BadgeRequest{QueryProfile: true, TrailblazerId: userID}
