@@ -104,46 +104,51 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONToBrowser(w, out)
 }
 
-// skillsHandler returns information about a Trailblazer's skills
-func skillsHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := getTrailheadID(w, vars["id"])
-
-	if userID == "" {
-		writeErrorToBrowser(w, fmt.Sprintf(`{"error":"Could not retrieve trailhead Id with provided alias %s"}`, userID), 503)
-		return
-	}
-
-	responseBody, err := doSupabaseCallout(skillsUrl, fmt.Sprintf(`{
-		"queryProfile": true,
-		"trailblazerId": "%s"
-	}`, userID))
-
-	var trailheadSkillsData trailhead.Skills
-	json.Unmarshal([]byte(responseBody), &trailheadSkillsData)
-
-	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
-	} else if trailheadSkillsData.Profile.EarnedSkills != nil {
-		encodeAndWriteToBrowser(w, trailheadSkillsData)
-	}
-}
-
 // rankHandler returns information about a Trailblazer's rank and overall points
 func rankHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	responseBody, err := doTrailheadProfileCallout(
-		"https://profile.api.trailhead.com/graphql",
-		trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], `fragment TrailheadRank on TrailheadRank {\n  __typename\n  title\n  requiredPointsSum\n  requiredBadgesCount\n  imageUrl\n}\n\nfragment PublicProfile on PublicProfile {\n  __typename\n  trailheadStats {\n    __typename\n    earnedPointsSum\n    earnedBadgesCount\n    completedTrailCount\n    rank {\n      ...TrailheadRank\n    }\n    nextRank {\n      ...TrailheadRank\n    }\n  }\n}\n\nquery GetTrailheadRank($slug: String, $hasSlug: Boolean!) {\n  profile(slug: $slug) @include(if: $hasSlug) {\n    ... on PublicProfile {\n      ...PublicProfile\n    }\n    ... on PrivateProfile {\n      __typename\n    }\n  }\n}\n`))
+	responseBody, err := doTrailheadProfileCallout(trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], `fragment TrailheadRank on TrailheadRank {\n __typename\n title\n requiredPointsSum\n requiredBadgesCount\n imageUrl\n}\n\nfragment PublicProfile on PublicProfile {\n __typename\n trailheadStats {\n __typename\n earnedPointsSum\n earnedBadgesCount\n completedTrailCount\n rank {\n ...TrailheadRank\n }\n nextRank {\n ...TrailheadRank\n }\n }\n}\n\nquery GetTrailheadRank($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n ... on PublicProfile {\n ...PublicProfile\n }\n ... on PrivateProfile {\n __typename\n }\n }\n}\n`))
 
 	var trailheadRankData trailhead.Rank
 	json.Unmarshal([]byte(responseBody), &trailheadRankData)
 
 	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, `{"error":"No rank data returned from Trailhead."}`, 503)
 	} else if trailheadRankData.Data.Profile.TrailheadStats.Typename != "" {
 		encodeAndWriteToBrowser(w, trailheadRankData.Data)
+	}
+}
+
+// skillsHandler returns information about a Trailblazer's skills
+func skillsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	responseBody, err := doTrailheadProfileCallout(trailhead.GetGraphqlPayload("GetEarnedSkills", vars["id"], `fragment EarnedSkill on EarnedSkill {\n __typename\n earnedPointsSum\n id\n itemProgressEntryCount\n skill {\n __typename\n apiName\n id\n name\n}\n}\n\nquery GetEarnedSkills($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n ... on PublicProfile {\n id\n earnedSkills {\n ...EarnedSkill\n}\n}\n}\n}`))
+
+	var trailheadSkillsData trailhead.Skills
+	json.Unmarshal([]byte(responseBody), &trailheadSkillsData)
+
+	if err != nil {
+		writeErrorToBrowser(w, `{"error":"No skills data returned from Trailhead."}`, 503)
+	} else if trailheadSkillsData.Data.Profile.EarnedSkills != nil {
+		encodeAndWriteToBrowser(w, trailheadSkillsData.Data)
+	}
+}
+
+// certificationsHandler gets Salesforce certifications the Trailblazer has earned.
+func certificationsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	responseBody, err := doTrailheadProfileCallout(trailhead.GetGraphqlPayload("GetUserCertifications", vars["id"], `query GetUserCertifications($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n id\n ... on PublicProfile {\n credential {\n messages {\n __typename\n body\n header\n location\n image\n cta {\n __typename\n label\n url\n }\n orientation\n }\n messagesOnly\n brands {\n __typename\n id\n name\n logo\n }\n certifications {\n cta {\n __typename\n label\n url\n }\n dateCompleted\n dateExpired\n downloadLogoUrl\n logoUrl\n infoUrl\n maintenanceDueDate\n product\n publicDescription\n status {\n __typename\n title\n expired\n date\n color\n order\n }\n title\n }\n }\n }\n }\n}\n`))
+
+	var trailheadCertificationsData trailhead.Certifications
+	json.Unmarshal([]byte(responseBody), &trailheadCertificationsData)
+
+	if err != nil {
+		writeErrorToBrowser(w, `{"error":"No rank data returned from Trailhead."}`, 503)
+	} else if trailheadCertificationsData.Data.Profile.Credential.Certifications != nil {
+		encodeAndWriteToBrowser(w, trailheadCertificationsData.Data)
 	}
 }
 
@@ -202,26 +207,6 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
 	} else if trailheadBadgeData.Profile.EarnedAwards.Edges != nil {
 		encodeAndWriteToBrowser(w, trailheadBadgeData)
-	}
-}
-
-// certificationsHandler gets Salesforce certifications the Trailblazer has earned.
-func certificationsHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := getTrailheadID(w, vars["id"])
-
-	if userID == "" {
-		writeErrorToBrowser(w, fmt.Sprintf(`{"error":"Could not retrieve trailhead Id with provided alias %s"}`, userID), 503)
-		return
-	}
-
-	trailheadData := doTrailheadAuraCallout(trailhead.GetApexAction("AchievementService", "fetchAchievements", userID, "", ""), "")
-
-	if trailheadData.Actions != nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(trailheadData.Actions[0].ReturnValue.ReturnValue.CertificationsResult)
-	} else {
-		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
 	}
 }
 
@@ -419,9 +404,9 @@ func doTrailheadCallout(messagePayload string) trailhead.Data {
 }
 
 // doTrailheadProfileCallout makes a callout to the given URL using the given
-func doTrailheadProfileCallout(url string, payload string) (string, error) {
+func doTrailheadProfileCallout(payload string) (string, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+	req, err := http.NewRequest("POST", "https://profile.api.trailhead.com/graphql", strings.NewReader(payload))
 
 	if err != nil {
 		log.Println(err)
@@ -430,12 +415,6 @@ func doTrailheadProfileCallout(url string, payload string) (string, error) {
 	req.Header.Add("Accept", "*/*")
 	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
 	req.Header.Add("Content-Type", "application/json")
-	// req.Header.Add("Referer", "https://profile.api.trailhead.com/graphql")
-	// req.Header.Add("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
-	// req.Header.Add("Origin", "https://profile.api.trailhead.com/graphql")
-	// req.Header.Add("DNT", "1")
-	// req.Header.Add("Connection", "keep-alive")
-
 	res, err := client.Do(req)
 
 	if res != nil {
