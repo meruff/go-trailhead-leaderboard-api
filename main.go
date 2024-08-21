@@ -26,8 +26,6 @@ const (
 	skillsUrl           = supabaseUrl + "skills"
 )
 
-var auraContext = ""
-
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/trailblazer/{id}", profileHandler)
@@ -108,7 +106,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 func rankHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	responseBody, err := doTrailheadProfileCallout(trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], `fragment TrailheadRank on TrailheadRank {\n __typename\n title\n requiredPointsSum\n requiredBadgesCount\n imageUrl\n}\n\nfragment PublicProfile on PublicProfile {\n __typename\n trailheadStats {\n __typename\n earnedPointsSum\n earnedBadgesCount\n completedTrailCount\n rank {\n ...TrailheadRank\n }\n nextRank {\n ...TrailheadRank\n }\n }\n}\n\nquery GetTrailheadRank($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n ... on PublicProfile {\n ...PublicProfile\n }\n ... on PrivateProfile {\n __typename\n }\n }\n}\n`))
+	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], `fragment TrailheadRank on TrailheadRank {\n __typename\n title\n requiredPointsSum\n requiredBadgesCount\n imageUrl\n}\n\nfragment PublicProfile on PublicProfile {\n __typename\n trailheadStats {\n __typename\n earnedPointsSum\n earnedBadgesCount\n completedTrailCount\n rank {\n ...TrailheadRank\n }\n nextRank {\n ...TrailheadRank\n }\n }\n}\n\nquery GetTrailheadRank($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n ... on PublicProfile {\n ...PublicProfile\n }\n ... on PrivateProfile {\n __typename\n }\n }\n}\n`))
 
 	var trailheadRankData trailhead.Rank
 	json.Unmarshal([]byte(responseBody), &trailheadRankData)
@@ -124,7 +122,7 @@ func rankHandler(w http.ResponseWriter, r *http.Request) {
 func skillsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	responseBody, err := doTrailheadProfileCallout(trailhead.GetGraphqlPayload("GetEarnedSkills", vars["id"], `fragment EarnedSkill on EarnedSkill {\n __typename\n earnedPointsSum\n id\n itemProgressEntryCount\n skill {\n __typename\n apiName\n id\n name\n}\n}\n\nquery GetEarnedSkills($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n ... on PublicProfile {\n id\n earnedSkills {\n ...EarnedSkill\n}\n}\n}\n}`))
+	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetEarnedSkills", vars["id"], `fragment EarnedSkill on EarnedSkill {\n __typename\n earnedPointsSum\n id\n itemProgressEntryCount\n skill {\n __typename\n apiName\n id\n name\n}\n}\n\nquery GetEarnedSkills($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n ... on PublicProfile {\n id\n earnedSkills {\n ...EarnedSkill\n}\n}\n}\n}`))
 
 	var trailheadSkillsData trailhead.Skills
 	json.Unmarshal([]byte(responseBody), &trailheadSkillsData)
@@ -140,7 +138,7 @@ func skillsHandler(w http.ResponseWriter, r *http.Request) {
 func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	responseBody, err := doTrailheadProfileCallout(trailhead.GetGraphqlPayload("GetUserCertifications", vars["id"], `query GetUserCertifications($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n id\n ... on PublicProfile {\n credential {\n messages {\n __typename\n body\n header\n location\n image\n cta {\n __typename\n label\n url\n }\n orientation\n }\n messagesOnly\n brands {\n __typename\n id\n name\n logo\n }\n certifications {\n cta {\n __typename\n label\n url\n }\n dateCompleted\n dateExpired\n downloadLogoUrl\n logoUrl\n infoUrl\n maintenanceDueDate\n product\n publicDescription\n status {\n __typename\n title\n expired\n date\n color\n order\n }\n title\n }\n }\n }\n }\n}\n`))
+	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetUserCertifications", vars["id"], `query GetUserCertifications($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n id\n ... on PublicProfile {\n credential {\n messages {\n __typename\n body\n header\n location\n image\n cta {\n __typename\n label\n url\n }\n orientation\n }\n messagesOnly\n brands {\n __typename\n id\n name\n logo\n }\n certifications {\n cta {\n __typename\n label\n url\n }\n dateCompleted\n dateExpired\n downloadLogoUrl\n logoUrl\n infoUrl\n maintenanceDueDate\n product\n publicDescription\n status {\n __typename\n title\n expired\n date\n color\n order\n }\n title\n }\n }\n }\n }\n}\n`))
 
 	var trailheadCertificationsData trailhead.Certifications
 	json.Unmarshal([]byte(responseBody), &trailheadCertificationsData)
@@ -286,125 +284,8 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 	return userAlias
 }
 
-// doTrailheadAuraCallout wraps doTrailheadCallout specifically for calls to the Profile App for Aura which needs the FwUID.
-// It will retreive the FwUID if unknown or if the initial call fails and retry the call so that the calling method does not
-// need to know about the FwUID
-func doTrailheadAuraCallout(apexAction string, pageURI string) trailhead.Data {
-	// If config has been retrieved, try aura call
-	if len(auraContext) != 0 {
-		var trailheadData = doTrailheadCallout(
-			`message={"actions":[` + apexAction + `]}` +
-				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
-
-		// If the response is not nil, call was successful
-		if trailheadData.Actions != nil {
-			return trailheadData
-		}
-
-		// Else  the response is nil, try getting the new fwuid and retry call before failing
-	}
-
-	// Get fwuid from profile app config
-	updateAuraProfileAppConfig()
-
-	// Make aura call
-	if len(auraContext) != 0 {
-		return doTrailheadCallout(
-			`message={"actions":[` + apexAction + `]}` +
-				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
-	}
-
-	return trailhead.Data{Actions: nil}
-}
-
-// updateAuraProfileAppConfig retrives the profile app config to extract the aura context
-func updateAuraProfileAppConfig() {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", profileAppConfigUrl, nil)
-
-	if err != nil {
-		log.Println(err)
-	}
-
-	req.Header.Add("Accept", "*/*")
-	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Add("Referer", "https://trailblazer.me/id")
-	req.Header.Add("Origin", "https://trailblazer.me")
-	req.Header.Add("DNT", "1")
-	req.Header.Add("Connection", "keep-alive")
-
-	res, err := client.Do(req)
-
-	if res != nil {
-		defer res.Body.Close()
-	}
-
-	if err != nil {
-		log.Println(err)
-	}
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Println("Error reading response body.")
-	}
-
-	// Deserialize the entire app config
-	var profileAppConfig trailhead.ProfileAppConfig
-	json.Unmarshal(body, &profileAppConfig)
-
-	if len(profileAppConfig.AuraConfig.Context.FwUID) != 0 {
-		bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context.Loaded)
-
-		if err != nil {
-			log.Println(err)
-		}
-
-		auraContext = trailhead.GetAuraContext(profileAppConfig.AuraConfig.Context.FwUID, string(bytes))
-	} else {
-		auraContext = ""
-	}
-}
-
-// doTrailheadCallout does the callout and returns the Apex REST response from Trailhead.
-func doTrailheadCallout(messagePayload string) trailhead.Data {
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", apexExecUrl, strings.NewReader(messagePayload))
-
-	if err != nil {
-		log.Println(err)
-	}
-
-	req.Header.Add("Accept", "*/*")
-	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Add("Referer", "https://trailblazer.me/id")
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
-	req.Header.Add("Origin", "https://trailblazer.me")
-	req.Header.Add("DNT", "1")
-	req.Header.Add("Connection", "keep-alive")
-
-	res, err := client.Do(req)
-
-	if res != nil {
-		defer res.Body.Close()
-	}
-
-	if err != nil {
-		log.Println(err)
-	}
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Println("Error reading response body.")
-	}
-
-	var trailheadData trailhead.Data
-	json.Unmarshal(body, &trailheadData)
-
-	return trailheadData
-}
-
-// doTrailheadProfileCallout makes a callout to the given URL using the given
-func doTrailheadProfileCallout(payload string) (string, error) {
+// doTrailheadCallout makes a callout to the given URL using the given
+func doTrailheadCallout(payload string) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "https://profile.api.trailhead.com/graphql", strings.NewReader(payload))
 
