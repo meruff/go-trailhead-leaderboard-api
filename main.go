@@ -189,6 +189,10 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	badgeRequestBody, err := json.Marshal(badgeRequestStruct)
+	if err != nil {
+		log.Println("Error unmarshalling badgeRequestStruct")
+	}
+
 	responseBody, err := doSupabaseCallout(badgesUrl, string(badgeRequestBody))
 
 	var trailheadBadgeData trailhead.Badges
@@ -263,7 +267,7 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 		// Try finding userID using TDIDUserId__c if present in response.
 		var index = strings.Index(strBody, `"TBIDUserId__c":"005`)
 
-		if -1 != index {
+		if index != -1 {
 			userID = string(strBody[index+17 : index+35])
 		}
 
@@ -271,7 +275,7 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 		if !strings.HasPrefix(userID, "005") {
 			index = strings.Index(strBody, `\"Id\":\"`)
 
-			if -1 != index {
+			if index != -1 {
 				userID = string(strBody[index+9 : index+27])
 			}
 		}
@@ -280,7 +284,7 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 		if !strings.HasPrefix(userID, "005") {
 			index = strings.Index(strBody, "uid: '005")
 
-			if -1 != index {
+			if index != -1 {
 				userID = string(strBody[index+6 : index+24])
 			}
 		}
@@ -302,7 +306,7 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 // need to know about the FwUID
 func doTrailheadAuraCallout(apexAction string, pageURI string) trailhead.Data {
 	// If config has been retrieved, try aura call
-	if 0 != len(auraContext) {
+	if len(auraContext) != 0 {
 		var trailheadData = doTrailheadCallout(
 			`message={"actions":[` + apexAction + `]}` +
 				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
@@ -319,7 +323,7 @@ func doTrailheadAuraCallout(apexAction string, pageURI string) trailhead.Data {
 	updateAuraProfileAppConfig()
 
 	// Make aura call
-	if 0 != len(auraContext) {
+	if len(auraContext) != 0 {
 		return doTrailheadCallout(
 			`message={"actions":[` + apexAction + `]}` +
 				`&aura.context=` + auraContext + `&aura.pageURI=` + pageURI + `&aura.token="`)
@@ -355,12 +359,15 @@ func updateAuraProfileAppConfig() {
 	}
 
 	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Println("Error reading response body.")
+	}
 
 	// Deserialize the entire app config
 	var profileAppConfig trailhead.ProfileAppConfig
 	json.Unmarshal(body, &profileAppConfig)
 
-	if 0 != len(profileAppConfig.AuraConfig.Context.FwUID) {
+	if len(profileAppConfig.AuraConfig.Context.FwUID) != 0 {
 		bytes, err := json.Marshal(profileAppConfig.AuraConfig.Context.Loaded)
 
 		if err != nil {
@@ -401,6 +408,10 @@ func doTrailheadCallout(messagePayload string) trailhead.Data {
 	}
 
 	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Println("Error reading response body.")
+	}
+
 	var trailheadData trailhead.Data
 	json.Unmarshal(body, &trailheadData)
 
