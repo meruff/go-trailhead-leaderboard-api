@@ -37,23 +37,25 @@ type Data struct {
 
 // Rank represents skill data returned from trailhead.
 type Rank struct {
-	Profile struct {
-		Typename       string `json:"__typename"`
-		TrailheadStats struct {
-			Typename            string `json:"__typename"`
-			EarnedPointsSum     int    `json:"earnedPointsSum"`
-			EarnedBadgesCount   int    `json:"earnedBadgesCount"`
-			CompletedTrailCount int    `json:"completedTrailCount"`
-			Rank                struct {
+	Data struct {
+		Profile struct {
+			Typename       string `json:"__typename"`
+			TrailheadStats struct {
 				Typename            string `json:"__typename"`
-				Title               string `json:"title"`
-				RequiredPointsSum   int    `json:"requiredPointsSum"`
-				RequiredBadgesCount int    `json:"requiredBadgesCount"`
-				ImageURL            string `json:"imageUrl"`
-			} `json:"rank"`
-			NextRank interface{} `json:"nextRank"`
-		} `json:"trailheadStats"`
-	} `json:"profile"`
+				EarnedPointsSum     int    `json:"earnedPointsSum"`
+				EarnedBadgesCount   int    `json:"earnedBadgesCount"`
+				CompletedTrailCount int    `json:"completedTrailCount"`
+				Rank                struct {
+					Typename            string `json:"__typename"`
+					Title               string `json:"title"`
+					RequiredPointsSum   int    `json:"requiredPointsSum"`
+					RequiredBadgesCount int    `json:"requiredBadgesCount"`
+					ImageURL            string `json:"imageUrl"`
+				} `json:"rank"`
+				NextRank interface{} `json:"nextRank"`
+			} `json:"trailheadStats"`
+		} `json:"profile"`
+	} `json:"data"`
 }
 
 // Skills represents skill data returned from trailhead.
@@ -180,4 +182,16 @@ func GetApexAction(className string, methodName string, userID string, skip stri
 		}`
 
 	return actionString
+}
+
+// GetGraphqlPayload returns a JSON string to use in Trailhead graphql callouts.
+func GetGraphqlPayload(operationName string, userID string, query string) string {
+	return `{
+	"operationName": "` + operationName + `",
+  	"variables": {
+    	"hasSlug": true,
+    	"slug": "` + userID + `"
+  	},
+  	"query": "` + query + `"
+	}`
 }

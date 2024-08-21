@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -76,7 +76,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 
 	if err != nil {
 		log.Println(err)
@@ -132,25 +132,18 @@ func skillsHandler(w http.ResponseWriter, r *http.Request) {
 // rankHandler returns information about a Trailblazer's rank and overall points
 func rankHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	userID := getTrailheadID(w, vars["id"])
 
-	if userID == "" {
-		writeErrorToBrowser(w, fmt.Sprintf(`{"error":"Could not retrieve trailhead Id with provided alias %s"}`, userID), 503)
-		return
-	}
-
-	responseBody, err := doSupabaseCallout(rankUrl, fmt.Sprintf(`{
-		"queryProfile": true,
-		"trailblazerId": "%s"
-	}`, userID))
+	responseBody, err := doTrailheadProfileCallout(
+		"https://profile.api.trailhead.com/graphql",
+		trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], `fragment TrailheadRank on TrailheadRank {\n  __typename\n  title\n  requiredPointsSum\n  requiredBadgesCount\n  imageUrl\n}\n\nfragment PublicProfile on PublicProfile {\n  __typename\n  trailheadStats {\n    __typename\n    earnedPointsSum\n    earnedBadgesCount\n    completedTrailCount\n    rank {\n      ...TrailheadRank\n    }\n    nextRank {\n      ...TrailheadRank\n    }\n  }\n}\n\nquery GetTrailheadRank($slug: String, $hasSlug: Boolean!) {\n  profile(slug: $slug) @include(if: $hasSlug) {\n    ... on PublicProfile {\n      ...PublicProfile\n    }\n    ... on PrivateProfile {\n      __typename\n    }\n  }\n}\n`))
 
 	var trailheadRankData trailhead.Rank
 	json.Unmarshal([]byte(responseBody), &trailheadRankData)
 
 	if err != nil {
 		writeErrorToBrowser(w, `{"error":"No data returned from Trailhead."}`, 503)
-	} else if trailheadRankData.Profile.TrailheadStats.Typename != "" {
-		encodeAndWriteToBrowser(w, trailheadRankData)
+	} else if trailheadRankData.Data.Profile.TrailheadStats.Typename != "" {
+		encodeAndWriteToBrowser(w, trailheadRankData.Data)
 	}
 }
 
@@ -255,7 +248,7 @@ func getTrailheadID(w http.ResponseWriter, userAlias string) string {
 			writeErrorToBrowser(w, `{"error":"Problem retrieving Trailblazer ID."}`, 503)
 		}
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 
 		if err != nil {
 			log.Println(err)
@@ -358,7 +351,7 @@ func updateAuraProfileAppConfig() {
 		log.Println(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 
 	// Deserialize the entire app config
 	var profileAppConfig trailhead.ProfileAppConfig
@@ -404,11 +397,46 @@ func doTrailheadCallout(messagePayload string) trailhead.Data {
 		log.Println(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var trailheadData trailhead.Data
 	json.Unmarshal(body, &trailheadData)
 
 	return trailheadData
+}
+
+// doTrailheadProfileCallout makes a callout to the given URL using the given
+func doTrailheadProfileCallout(url string, payload string) (string, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Add("Content-Type", "application/json")
+	// req.Header.Add("Referer", "https://profile.api.trailhead.com/graphql")
+	// req.Header.Add("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+	// req.Header.Add("Origin", "https://profile.api.trailhead.com/graphql")
+	// req.Header.Add("DNT", "1")
+	// req.Header.Add("Connection", "keep-alive")
+
+	res, err := client.Do(req)
+
+	if res != nil {
+		defer res.Body.Close()
+	}
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	// var trailheadData trailhead.Data
+	// json.Unmarshal(body, &trailheadData)
+
+	return string(body), err
 }
 
 // doSupabaseCallout make a callout to the given URL using the given payload.
@@ -429,7 +457,7 @@ func doSupabaseCallout(url string, payload string) (string, error) {
 		log.Println(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	return string(body), err
 }
 
