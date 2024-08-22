@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,8 +18,7 @@ import (
 
 const (
 	trailheadApiUrl = "https://profile.api.trailhead.com/graphql"
-	trailblazerUrl  = "https://trailblazer.me/"
-	meIdUrl         = trailblazerUrl + "id/"
+	trailblazerUrl  = "https://www.salesforce.com/trailblazer/"
 )
 
 func main() {
@@ -55,8 +56,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := http.Get(meIdUrl + userAlias)
-
+	res, err := http.Get(trailblazerUrl + userAlias)
 	if res != nil {
 		defer res.Body.Close()
 	}
@@ -68,31 +68,27 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, err := io.ReadAll(res.Body)
-
 	if err != nil {
 		log.Println(err)
-		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
+		writeErrorToBrowser(w, `{"error":"Problem reading profile body."}`, 503)
 		return
 	}
 
-	jsonString := strings.Replace(string(body), "\\'", "\\\\'", -1)
-
-	if !strings.Contains(jsonString, "var profileData = JSON.parse(") {
-		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
+	if !strings.Contains(string(body), "var profile = ") {
+		writeErrorToBrowser(w, `{"error":"Cannot find profile data on page."}`, 503)
 		return
 	}
 
-	jsonString = jsonString[strings.Index(jsonString, "var profileData = JSON.parse(")+29 : strings.Index(jsonString, "trailblazer.me\\\"}\");")+18]
-	out, err := strconv.Unquote(jsonString)
+	re := regexp.MustCompile(`var profile = (.*);`)
+	match := re.FindStringSubmatch(string(body))
 
-	if err != nil {
-		log.Println(err)
-		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
-		return
+	if len(match) > 1 {
+		fmt.Println("match found -", match[1])
+		writeJSONToBrowser(w, match[1])
+	} else {
+		fmt.Println("match not found")
+		writeErrorToBrowser(w, `{"error":"No profile data found."}`, 503)
 	}
-
-	out = strings.Replace(out, "\\'", "'", -1)
-	writeJSONToBrowser(w, out)
 }
 
 // rankHandler returns information about a Trailblazer's rank and overall points
@@ -213,8 +209,8 @@ func doTrailheadCallout(payload string) (string, error) {
 	req.Header.Add("Accept", "*/*")
 	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
 	req.Header.Add("Content-Type", "application/json")
-	res, err := client.Do(req)
 
+	res, err := client.Do(req)
 	if res != nil {
 		defer res.Body.Close()
 	}

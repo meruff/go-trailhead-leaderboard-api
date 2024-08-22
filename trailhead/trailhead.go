@@ -4,37 +4,32 @@ import (
 	"strconv"
 )
 
-// Data represents a response from trailhead.
-type Data struct {
-	Actions []struct {
-		ID          string `json:"id"`
-		State       string `json:"state"`
-		ReturnValue struct {
-			ReturnValue struct {
-				Body                 string `json:"body"`
-				SuperbadgesResult    string `json:"superbadgesResult"`
-				CertificationsResult struct {
-					CertificationsList []struct {
-						CertificationImageURL string `json:"certificationImageUrl"`
-						CertificationStatus   string `json:"certificationStatus"`
-						CertificationURL      string `json:"certificationUrl"`
-						DateCompleted         string `json:"dateCompleted"`
-						DateExpired           string `json:"dateExpired"`
-						Description           string `json:"description"`
-						Title                 string `json:"title"`
-					} `json:"certificationsList"`
-					StatusCode    string `json:"statusCode"`
-					StatusMessage string `json:"statusMessage"`
-				} `json:"certificationsResult"`
-				IsMyTrailheadUser bool `json:"isMyTrailheadUser"`
-			} `json:"returnValue"`
-			Cacheable bool `json:"cacheable"`
-		} `json:"returnValue"`
-		Error []interface{} `json:"error"`
-	} `json:"actions"`
-	Context struct {
-		Fwuid string `json:"fwuid"`
-	} `json:"context"`
+// Profile represents basic trailhead data i.e. name, title, company
+type Profile struct {
+	ID                       string `json:"id"`
+	FirstName                string `json:"firstName"`
+	LastName                 string `json:"lastName"`
+	Username                 string `json:"username"`
+	ProfileURL               string `json:"profileUrl"`
+	BackgroundImageURL       string `json:"backgroundImageUrl"`
+	IsPublicProfile          bool   `json:"isPublicProfile"`
+	Role                     string `json:"role"`
+	Title                    string `json:"title"`
+	RelationshipToSalesforce string `json:"relationshipToSalesforce"`
+	Nickname                 string `json:"nickname"`
+	PhotoURL                 string `json:"photoUrl"`
+	Bio                      string `json:"bio"`
+	LinkedinHandle           string `json:"linkedinHandle"`
+	WebsiteURL               string `json:"websiteUrl"`
+	Company                  struct {
+		Name    string `json:"name"`
+		Size    string `json:"size"`
+		Website string `json:"website"`
+	} `json:"company"`
+	Address struct {
+		State   string `json:"state"`
+		Country string `json:"country"`
+	} `json:"address"`
 }
 
 // Rank represents skill data returned from trailhead.
