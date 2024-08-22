@@ -233,12 +233,6 @@ func doTrailheadCallout(payload string) (string, error) {
 	return string(body), err
 }
 
-// writeJSONToBrowser simply writes a provided string to the browser in JSON format with optional HTTP code.
-func writeJSONToBrowser(w http.ResponseWriter, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(message))
-}
-
 // writeErrorToBrowser writes an HTTP error to the broswer in JSON.
 func writeErrorToBrowser(w http.ResponseWriter, err string, code int) {
 	w.Header().Set("Content-Type", "application/json")
