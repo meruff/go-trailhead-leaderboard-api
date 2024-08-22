@@ -103,7 +103,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 // rankHandler returns information about a Trailblazer's rank and overall points
 func rankHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], "", `fragment TrailheadRank on TrailheadRank {\n __typename\n title\n requiredPointsSum\n requiredBadgesCount\n imageUrl\n}\n\nfragment PublicProfile on PublicProfile {\n __typename\n trailheadStats {\n __typename\n earnedPointsSum\n earnedBadgesCount\n completedTrailCount\n rank {\n ...TrailheadRank\n }\n nextRank {\n ...TrailheadRank\n }\n }\n}\n\nquery GetTrailheadRank($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n ... on PublicProfile {\n ...PublicProfile\n }\n ... on PrivateProfile {\n __typename\n }\n }\n}\n`))
+	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], "", trailhead.GetRankQuery()))
 
 	var trailheadRankData trailhead.Rank
 	json.Unmarshal([]byte(responseBody), &trailheadRankData)
@@ -118,7 +118,7 @@ func rankHandler(w http.ResponseWriter, r *http.Request) {
 // skillsHandler returns information about a Trailblazer's skills
 func skillsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetEarnedSkills", vars["id"], "", `fragment EarnedSkill on EarnedSkill {\n __typename\n earnedPointsSum\n id\n itemProgressEntryCount\n skill {\n __typename\n apiName\n id\n name\n}\n}\n\nquery GetEarnedSkills($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n ... on PublicProfile {\n id\n earnedSkills {\n ...EarnedSkill\n}\n}\n}\n}`))
+	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetEarnedSkills", vars["id"], "", trailhead.GetSkillsQuery()))
 
 	var trailheadSkillsData trailhead.Skills
 	json.Unmarshal([]byte(responseBody), &trailheadSkillsData)
@@ -133,7 +133,7 @@ func skillsHandler(w http.ResponseWriter, r *http.Request) {
 // certificationsHandler gets Salesforce certifications the Trailblazer has earned.
 func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetUserCertifications", vars["id"], "", `query GetUserCertifications($slug: String, $hasSlug: Boolean!) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n id\n ... on PublicProfile {\n credential {\n messages {\n __typename\n body\n header\n location\n image\n cta {\n __typename\n label\n url\n }\n orientation\n }\n messagesOnly\n brands {\n __typename\n id\n name\n logo\n }\n certifications {\n cta {\n __typename\n label\n url\n }\n dateCompleted\n dateExpired\n downloadLogoUrl\n logoUrl\n infoUrl\n maintenanceDueDate\n product\n publicDescription\n status {\n __typename\n title\n expired\n date\n color\n order\n }\n title\n }\n }\n }\n }\n}\n`))
+	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetUserCertifications", vars["id"], "", trailhead.GetCertificationsQuery()))
 
 	var trailheadCertificationsData trailhead.Certifications
 	json.Unmarshal([]byte(responseBody), &trailheadCertificationsData)
@@ -178,7 +178,7 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 		badgeRequestStruct.After = after
 	}
 
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadBadges", vars["id"], trailhead.GetBadgesFilterPayload(vars["id"], badgeRequestStruct), `fragment EarnedAward on EarnedAwardBase {\n __typename\n id\n award {\n __typename\n id\n title\n type\n icon\n content {\n __typename\n webUrl\n description\n }\n }\n}\n\nfragment EarnedAwardSelf on EarnedAwardSelf {\n __typename\n id\n award {\n __typename\n id\n title\n type\n icon\n content {\n __typename\n webUrl\n description\n }\n }\n earnedAt\n earnedPointsSum\n}\n\nfragment StatsBadgeCount on TrailheadProfileStats {\n __typename\n earnedBadgesCount\n superbadgeCount\n}\n\nfragment ProfileBadges on PublicProfile {\n __typename\n trailheadStats {\n ... on TrailheadProfileStats {\n ...StatsBadgeCount\n }\n }\n earnedAwards(first: $count, after: $after, awardType: $filter) {\n edges {\n node {\n ... on EarnedAwardBase {\n ...EarnedAward\n }\n ... on EarnedAwardSelf {\n ...EarnedAwardSelf\n }\n }\n }\n pageInfo {\n ...PageInfoBidirectional\n }\n }\n}\n\nfragment PageInfoBidirectional on PageInfo {\n __typename\n endCursor\n hasNextPage\n startCursor\n hasPreviousPage\n}\n\nquery GetTrailheadBadges($slug: String, $hasSlug: Boolean!, $count: Int = 8, $after: String = null, $filter: AwardTypeFilter = null) {\n profile(slug: $slug) @include(if: $hasSlug) {\n __typename\n ... on PublicProfile {\n ...ProfileBadges\n }\n }\n}\n`))
+	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadBadges", vars["id"], trailhead.GetBadgesFilterPayload(vars["id"], badgeRequestStruct), trailhead.GetBadgesQuery()))
 
 	var trailheadBadgeData trailhead.Badges
 	json.Unmarshal([]byte(responseBody), &trailheadBadgeData)
