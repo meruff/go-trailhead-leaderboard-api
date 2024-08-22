@@ -1,6 +1,8 @@
 package trailhead
 
-import "strings"
+import (
+	"strconv"
+)
 
 // Data represents a response from trailhead.
 type Data struct {
@@ -137,109 +139,47 @@ type Certifications struct {
 
 // Badges represents skill data returned from trailhead.
 type Badges struct {
-	Profile struct {
-		Typename     string `json:"__typename"`
-		EarnedAwards struct {
-			Edges []struct {
-				Node struct {
-					Typename string `json:"__typename"`
-					ID       string `json:"id"`
-					Award    struct {
+	Data struct {
+		Profile struct {
+			Typename     string `json:"__typename"`
+			EarnedAwards struct {
+				Edges []struct {
+					Node struct {
 						Typename string `json:"__typename"`
 						ID       string `json:"id"`
-						Title    string `json:"title"`
-						Type     string `json:"type"`
-						Icon     string `json:"icon"`
-						Content  struct {
-							Typename    string `json:"__typename"`
-							WebURL      string `json:"webUrl"`
-							Description string `json:"description"`
-						} `json:"content"`
-					} `json:"award"`
-					EarnedAt        string `json:"earnedAt"`
-					EarnedPointsSum string `json:"earnedPointsSum"`
-				} `json:"node"`
-			} `json:"edges"`
-			PageInfo struct {
-				Typename        string `json:"__typename"`
-				EndCursor       string `json:"endCursor"`
-				HasNextPage     bool   `json:"hasNextPage"`
-				StartCursor     string `json:"startCursor"`
-				HasPreviousPage bool   `json:"hasPreviousPage"`
-			} `json:"pageInfo"`
-		} `json:"earnedAwards"`
-	} `json:"profile"`
-}
-
-// ProfileAppConfig represents the full configuration for the Salesforce Trailhead profile app
-type ProfileAppConfig struct {
-	AuraConfig struct {
-		Context struct {
-			FwUID  string      `json:"fwuid"`
-			Loaded interface{} `json:"loaded"`
-		} `json:"context"`
-	} `json:"auraConfig"`
+						Award    struct {
+							Typename string `json:"__typename"`
+							ID       string `json:"id"`
+							Title    string `json:"title"`
+							Type     string `json:"type"`
+							Icon     string `json:"icon"`
+							Content  struct {
+								Typename    string `json:"__typename"`
+								WebURL      string `json:"webUrl"`
+								Description string `json:"description"`
+							} `json:"content"`
+						} `json:"award"`
+						EarnedAt        string `json:"earnedAt"`
+						EarnedPointsSum string `json:"earnedPointsSum"`
+					} `json:"node"`
+				} `json:"edges"`
+				PageInfo struct {
+					Typename        string `json:"__typename"`
+					EndCursor       string `json:"endCursor"`
+					HasNextPage     bool   `json:"hasNextPage"`
+					StartCursor     string `json:"startCursor"`
+					HasPreviousPage bool   `json:"hasPreviousPage"`
+				} `json:"pageInfo"`
+			} `json:"earnedAwards"`
+		} `json:"profile"`
+	} `json:"data"`
 }
 
 // BadgeRequest represents a request to the /badges endpoint. The variables to send to graphql
 type BadgeRequest struct {
-	QueryProfile  bool    `json:"queryProfile"`
-	TrailblazerId string  `json:"trailblazerId"`
-	Filter        *string `json:"filter"`
-	After         *string `json:"after"`
-	Count         int     `json:"count"`
-}
-
-// GetAuraContext returns a JSON string containing the Aura "context" to use in the callout to Trailhead.
-func GetAuraContext(fwUID string, loaded string) string {
-	return `{
-        "mode":"PROD",
-        "fwuid":"` + fwUID + `",
-        "app":"c:ProfileApp",
-        "loaded":` + loaded + `,
-        "dn":[],
-        "globals":{
-            "srcdoc":true
-        },
-        "uad":true
-    }`
-}
-
-// GetApexAction returns a JSON string representing an Apex action to be used in the callout to Trailhead.
-func GetApexAction(className string, methodName string, userID string, skip string, filter string) string {
-	actionString :=
-		`{
-            "id":"212;a",
-            "descriptor":"aura://ApexActionController/ACTION$execute",
-            "callingDescriptor":"UNKNOWN",
-            "params":{
-                "namespace":"",
-                "classname":"` + className + `",
-                "method":"` + methodName + `",
-                "params":{
-                    "userId":"` + userID + `",
-                    "language":"en-US",
-					"featureAdditionalCerts": true`
-
-	if skip != "" {
-		actionString += `,
-                    "skip":` + skip + `,
-                    "perPage":30`
-	}
-
-	if filter != "" {
-		actionString += `,
-					"filter":"` + strings.Title(filter) + `"`
-	}
-
-	actionString += `
-                },
-				"cacheable":false,
-				"isContinuation":false
-			}
-		}`
-
-	return actionString
+	Filter string `json:"filter"`
+	After  string `json:"after"`
+	Count  int    `json:"count"`
 }
 
 // GetGraphqlPayload returns a JSON string to use in Trailhead graphql callouts.
@@ -247,6 +187,35 @@ func GetGraphqlPayload(operationName string, userID string, query string) string
 	return `{
 	"operationName": "` + operationName + `",
   	"variables": {
+    	"hasSlug": true,
+    	"slug": "` + userID + `"
+  	},
+  	"query": "` + query + `"
+	}`
+}
+
+// GetGraphqlPayload returns a JSON string to use in Trailhead graphql callouts.
+func GetGraphqlBadgesPayload(operationName string, userID string, query string, badgeFilters BadgeRequest) string {
+	var afterLine, filterLine string
+
+	if badgeFilters.After != "" {
+		afterLine = `"after": "` + badgeFilters.After + `",`
+	} else {
+		afterLine = `"after": null,`
+	}
+
+	if badgeFilters.Filter != "" {
+		filterLine = `"filter": "` + badgeFilters.Filter + `",`
+	} else {
+		filterLine = `"filter": null,`
+	}
+
+	return `{
+	"operationName": "` + operationName + `",
+  	"variables": {
+		"count": ` + strconv.Itoa(badgeFilters.Count) + `,
+		` + afterLine + `
+		` + filterLine + `
     	"hasSlug": true,
     	"slug": "` + userID + `"
   	},
