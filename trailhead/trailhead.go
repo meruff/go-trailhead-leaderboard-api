@@ -4,6 +4,20 @@ import (
 	"strconv"
 )
 
+type ProfileReturn struct {
+	Error           string
+	ProfilePhotoUrl string
+	ProfileUser     struct {
+		TBID_Role     string
+		CompanyName   string
+		TrailblazerId string
+		Title         string
+		FirstName     string
+		LastName      string
+		Id            string
+	}
+}
+
 // Profile represents basic trailhead data i.e. name, title, company
 type Profile struct {
 	ID                       string `json:"id"`
@@ -178,19 +192,26 @@ type BadgeRequest struct {
 }
 
 // GetGraphqlPayload returns a JSON string to use in Trailhead graphql callouts.
-func GetGraphqlPayload(operationName string, userID string, query string) string {
+func GetGraphqlPayload(operationName string, userID string, variables string, query string) string {
+	var variablesJsonString string
+
+	if variables != "" {
+		variablesJsonString = variables
+	} else {
+		variablesJsonString = `"variables": {
+    		"hasSlug": true,
+    		"slug": "` + userID + `"
+  		}`
+	}
+
 	return `{
-	"operationName": "` + operationName + `",
-  	"variables": {
-    	"hasSlug": true,
-    	"slug": "` + userID + `"
-  	},
-  	"query": "` + query + `"
+		"operationName": "` + operationName + `",
+  		` + variablesJsonString + `,
+  		"query": "` + query + `"
 	}`
 }
 
-// GetGraphqlPayload returns a JSON string to use in Trailhead graphql callouts.
-func GetGraphqlBadgesPayload(operationName string, userID string, query string, badgeFilters BadgeRequest) string {
+func GetBadgesFilterPayload(userID string, badgeFilters BadgeRequest) string {
 	var afterLine, filterLine string
 
 	if badgeFilters.After != "" {
@@ -205,15 +226,11 @@ func GetGraphqlBadgesPayload(operationName string, userID string, query string, 
 		filterLine = `"filter": null,`
 	}
 
-	return `{
-	"operationName": "` + operationName + `",
-  	"variables": {
+	return `"variables": {
 		"count": ` + strconv.Itoa(badgeFilters.Count) + `,
 		` + afterLine + `
 		` + filterLine + `
-    	"hasSlug": true,
-    	"slug": "` + userID + `"
-  	},
-  	"query": "` + query + `"
+		"hasSlug": true,
+		"slug": "` + userID + `"
 	}`
 }
