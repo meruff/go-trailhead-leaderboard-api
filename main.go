@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -44,14 +45,14 @@ func main() {
 	}
 }
 
-// profileHandler gets profile information of the Trailblazer i.e. Name, Location, Company, Title etc.
-// Uses a Trailblazer handle only, not an ID.
+// profileHandler gets profile information of the Trailblazer i.e. Name, Company, Title etc. Uses a
+// Trailblazer handle only, not an ID.
 func profileHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userAlias := vars["id"]
 
 	if strings.HasPrefix(userAlias, "005") {
-		writeErrorToBrowser(w, `{"error":"/profile requires a Trailblazer handle, not an ID as a parameter."}`, 503)
+		writeErrorToBrowser(w, "/profile requires a trailblazer handle, not an ID as a parameter.", 503)
 		return
 	}
 
@@ -62,19 +63,19 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println(err)
-		writeErrorToBrowser(w, `{"error":"Problem retrieving profile data."}`, 503)
+		writeErrorToBrowser(w, "Problem retrieving profile data.", 503)
 		return
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err)
-		writeErrorToBrowser(w, `{"error":"Problem reading profile body."}`, 503)
+		writeErrorToBrowser(w, "Problem reading profile body.", 503)
 		return
 	}
 
 	if !strings.Contains(string(body), "var profile = ") {
-		writeErrorToBrowser(w, `{"error":"Cannot find profile data on page."}`, 503)
+		writeErrorToBrowser(w, "Cannot find profile data on page.", 503)
 		return
 	}
 
@@ -96,7 +97,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		profileDataForUi.ProfileUser.Id = trailheadProfileData.ID
 		encodeAndWriteToBrowser(w, profileDataForUi)
 	} else {
-		writeErrorToBrowser(w, `{"error":"No profile data found."}`, 503)
+		writeErrorToBrowser(w, "No profile data found.", 503)
 	}
 }
 
@@ -104,9 +105,11 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 func rankHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], "", trailhead.GetRankQuery()))
+	responseBody, err := doTrailheadCallout(
+		trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], "", trailhead.GetRankQuery()),
+	)
 	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No rank data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, "No rank data returned from Trailhead.", 503)
 	}
 
 	var trailheadRankData trailhead.Rank
@@ -118,9 +121,16 @@ func rankHandler(w http.ResponseWriter, r *http.Request) {
 func skillsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetEarnedSkills", vars["id"], "", trailhead.GetSkillsQuery()))
+	responseBody, err := doTrailheadCallout(
+		trailhead.GetGraphqlPayload(
+			"GetEarnedSkills",
+			vars["id"],
+			"",
+			trailhead.GetSkillsQuery(),
+		),
+	)
 	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No skills data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, "No skills data returned from Trailhead.", 503)
 	}
 
 	var trailheadSkillsData trailhead.Skills
@@ -132,9 +142,16 @@ func skillsHandler(w http.ResponseWriter, r *http.Request) {
 func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetUserCertifications", vars["id"], "", trailhead.GetCertificationsQuery()))
+	responseBody, err := doTrailheadCallout(
+		trailhead.GetGraphqlPayload(
+			"GetUserCertifications",
+			vars["id"],
+			"",
+			trailhead.GetCertificationsQuery(),
+		),
+	)
 	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No certification data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, "No certification data returned from Trailhead.", 503)
 	}
 
 	var trailheadCertificationsData trailhead.Certifications
@@ -156,7 +173,9 @@ func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 			cReturn.DateExpired = ""
 		}
 
-		certificationReturnData.CertificationsList = append(certificationReturnData.CertificationsList, cReturn)
+		certificationReturnData.CertificationsList = append(
+			certificationReturnData.CertificationsList, cReturn,
+		)
 	}
 
 	encodeAndWriteToBrowser(w, certificationReturnData)
@@ -174,7 +193,11 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 		var upperFilter = strings.ToUpper(filter)
 		badgeRequestStruct.Filter = upperFilter
 	} else if filter != "all" && filter != "" {
-		writeErrorToBrowser(w, `{"error":"Expected badge filter to be one of: MODULE, PROJECT, SUPERBADGE, EVENT, STANDALONE."}`, 501)
+		writeErrorToBrowser(
+			w,
+			fmt.Sprintf("Expected badge filter to be one of: %s.", strings.Join(getValidBadgeFilters(), ", ")),
+			501,
+		)
 		return
 	}
 
@@ -195,9 +218,16 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 		badgeRequestStruct.After = after
 	}
 
-	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadBadges", vars["id"], trailhead.GetBadgesFilterPayload(vars["id"], badgeRequestStruct), trailhead.GetBadgesQuery()))
+	responseBody, err := doTrailheadCallout(
+		trailhead.GetGraphqlPayload(
+			"GetTrailheadBadges",
+			vars["id"],
+			trailhead.GetBadgesFilterPayload(vars["id"], badgeRequestStruct),
+			trailhead.GetBadgesQuery(),
+		),
+	)
 	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No badge data returned from Trailhead."}`, 503)
+		writeErrorToBrowser(w, "No badge data returned from Trailhead.", 503)
 	}
 
 	var trailheadBadgeData trailhead.Badges
@@ -218,7 +248,11 @@ func loggingHandler(next http.Handler) http.Handler {
 // catchAllHandler is the default message if no Trailblazer Id or handle is provided,
 // or if the u	ser has navigated to an unsupported page.
 func catchAllHandler(w http.ResponseWriter, r *http.Request) {
-	writeErrorToBrowser(w, `{"error":"Please provide a valid Trialhead user Id/handle or visit a valid URL. Example: /trailblazer/{id}"}`, 501)
+	writeErrorToBrowser(
+		w,
+		"Please provide a valid handle or visit a valid URL. Example: /trailblazer/{id}",
+		501,
+	)
 }
 
 // doTrailheadCallout makes a callout to the given URL using the given
@@ -249,10 +283,10 @@ func doTrailheadCallout(payload string) (string, error) {
 }
 
 // writeErrorToBrowser writes an HTTP error to the broswer in JSON.
-func writeErrorToBrowser(w http.ResponseWriter, err string, code int) {
+func writeErrorToBrowser(w http.ResponseWriter, errorMsg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write([]byte(err))
+	w.Write([]byte(fmt.Sprintf(`{"error":"%s"`, errorMsg)))
 }
 
 // encodeAndWriteToBrowser encodes a given interface and writes it to the browser as JSON.

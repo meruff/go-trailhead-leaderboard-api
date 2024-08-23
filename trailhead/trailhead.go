@@ -19,7 +19,7 @@ type ProfileReturn struct {
 	}
 }
 
-// Profile represents basic trailhead data i.e. name, title, company
+// Profile represents basic trailhead data i.e. name, title, company.
 type Profile struct {
 	ID                       string `json:"id"`
 	FirstName                string `json:"firstName"`
@@ -202,7 +202,7 @@ type Badges struct {
 	} `json:"data"`
 }
 
-// BadgeRequest represents a request to the /badges endpoint. The variables to send to graphql
+// BadgeRequest represents a request to the /badges trailhead endpoint.
 type BadgeRequest struct {
 	Filter string `json:"filter"`
 	After  string `json:"after"`
@@ -229,6 +229,7 @@ func GetGraphqlPayload(operationName string, userID string, variables string, qu
 	}`
 }
 
+// GetBadgesFilterPayload returns a variables json string to be used on the GraphQL callout.
 func GetBadgesFilterPayload(userID string, badgeFilters BadgeRequest) string {
 	var afterLine, filterLine string
 
