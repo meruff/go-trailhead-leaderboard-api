@@ -99,32 +99,32 @@ func GetCertificationsQuery() string {
                         }
                         certifications {
                             cta {
-                            __typename
-                            label
-                            url
-                        }
-                        dateCompleted
-                        dateExpired
-                        downloadLogoUrl
-                        logoUrl
-                        infoUrl
-                        maintenanceDueDate
-                        product
-                        publicDescription
-                        status {
-                            __typename
+                                __typename
+                                label
+                                url
+                            }
+                            dateCompleted
+                            dateExpired
+                            downloadLogoUrl
+                            logoUrl
+                            infoUrl
+                            maintenanceDueDate
+                            product
+                            publicDescription
+                            status {
+                                __typename
+                                title
+                                expired
+                                date
+                                color
+                                order
+                            }
                             title
-                            expired
-                            date
-                            color
-                            order
                         }
-                        title
                     }
                 }
             }
-        }
-    }`
+        }`
 }
 
 // GetBadgesQuery returns GraphQL query for EarnedAward
@@ -167,7 +167,7 @@ func GetBadgesQuery() string {
         }
 
         fragment StatsBadgeCount on TrailheadProfileStats {
-        __typename
+            __typename
             earnedBadgesCount
             superbadgeCount
         }
