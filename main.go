@@ -75,7 +75,11 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !strings.Contains(string(body), "var profile = ") {
-		writeErrorToBrowser(w, "Cannot find profile data on page.", 503)
+		writeErrorToBrowser(
+			w,
+			fmt.Sprintf("Cannot find profile data for %s. Does this trailblazer exist?", vars["id"]),
+			503,
+		)
 		return
 	}
 
