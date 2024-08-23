@@ -4,6 +4,7 @@ import (
 	"strconv"
 )
 
+// ProfileReturn represents the basic trailhead data returned via the Go API.
 type ProfileReturn struct {
 	Error           string
 	ProfilePhotoUrl string
@@ -88,6 +89,23 @@ type Skills struct {
 			} `json:"earnedSkills"`
 		} `json:"profile"`
 	} `json:"data"`
+}
+
+// CertificationsReturn represents the certification data returned via the Go API.
+type CertificationsReturn struct {
+	Error              string
+	CertificationsList []Certification
+}
+
+// Certification represents a single salesforce certification. Used in CertificationsReturn.
+type Certification struct {
+	DateExpired           string
+	DateCompleted         string
+	CertificationUrl      string
+	Description           string
+	CertificationStatus   string
+	Title                 string
+	CertificationImageUrl string
 }
 
 // Certifications represents certification records returned from trailhead.

@@ -103,46 +103,63 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 // rankHandler returns information about a Trailblazer's rank and overall points
 func rankHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+
 	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadRank", vars["id"], "", trailhead.GetRankQuery()))
+	if err != nil {
+		writeErrorToBrowser(w, `{"error":"No rank data returned from Trailhead."}`, 503)
+	}
 
 	var trailheadRankData trailhead.Rank
 	json.Unmarshal([]byte(responseBody), &trailheadRankData)
-
-	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No rank data returned from Trailhead."}`, 503)
-	} else if trailheadRankData.Data.Profile.TrailheadStats.Typename != "" {
-		encodeAndWriteToBrowser(w, trailheadRankData.Data)
-	}
+	encodeAndWriteToBrowser(w, trailheadRankData.Data)
 }
 
 // skillsHandler returns information about a Trailblazer's skills
 func skillsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+
 	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetEarnedSkills", vars["id"], "", trailhead.GetSkillsQuery()))
+	if err != nil {
+		writeErrorToBrowser(w, `{"error":"No skills data returned from Trailhead."}`, 503)
+	}
 
 	var trailheadSkillsData trailhead.Skills
 	json.Unmarshal([]byte(responseBody), &trailheadSkillsData)
-
-	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No skills data returned from Trailhead."}`, 503)
-	} else if trailheadSkillsData.Data.Profile.EarnedSkills != nil {
-		encodeAndWriteToBrowser(w, trailheadSkillsData.Data)
-	}
+	encodeAndWriteToBrowser(w, trailheadSkillsData.Data)
 }
 
 // certificationsHandler gets Salesforce certifications the Trailblazer has earned.
 func certificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+
 	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetUserCertifications", vars["id"], "", trailhead.GetCertificationsQuery()))
+	if err != nil {
+		writeErrorToBrowser(w, `{"error":"No certification data returned from Trailhead."}`, 503)
+	}
 
 	var trailheadCertificationsData trailhead.Certifications
 	json.Unmarshal([]byte(responseBody), &trailheadCertificationsData)
+	certificationReturnData := trailhead.CertificationsReturn{}
 
-	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No certification data returned from Trailhead."}`, 503)
-	} else if trailheadCertificationsData.Data.Profile.Credential.Certifications != nil {
-		encodeAndWriteToBrowser(w, trailheadCertificationsData.Data)
+	for _, certification := range trailheadCertificationsData.Data.Profile.Credential.Certifications {
+		cReturn := trailhead.Certification{}
+		cReturn.DateCompleted = certification.DateCompleted
+		cReturn.CertificationUrl = certification.InfoURL
+		cReturn.Description = certification.PublicDescription
+		cReturn.CertificationStatus = certification.Status.Title
+		cReturn.Title = certification.Title
+		cReturn.CertificationImageUrl = certification.LogoURL
+
+		if dateExpired, ok := certification.DateExpired.(string); ok {
+			cReturn.DateExpired = dateExpired
+		} else {
+			cReturn.DateExpired = ""
+		}
+
+		certificationReturnData.CertificationsList = append(certificationReturnData.CertificationsList, cReturn)
 	}
+
+	encodeAndWriteToBrowser(w, certificationReturnData)
 }
 
 // badgeshandler gets badges the Trailblazer has earned. Returns first 8. Optionally can
@@ -179,15 +196,13 @@ func badgesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responseBody, err := doTrailheadCallout(trailhead.GetGraphqlPayload("GetTrailheadBadges", vars["id"], trailhead.GetBadgesFilterPayload(vars["id"], badgeRequestStruct), trailhead.GetBadgesQuery()))
+	if err != nil {
+		writeErrorToBrowser(w, `{"error":"No badge data returned from Trailhead."}`, 503)
+	}
 
 	var trailheadBadgeData trailhead.Badges
 	json.Unmarshal([]byte(responseBody), &trailheadBadgeData)
-
-	if err != nil {
-		writeErrorToBrowser(w, `{"error":"No badge data returned from Trailhead."}`, 503)
-	} else if trailheadBadgeData.Data.Profile.EarnedAwards.Edges != nil {
-		encodeAndWriteToBrowser(w, trailheadBadgeData.Data)
-	}
+	encodeAndWriteToBrowser(w, trailheadBadgeData.Data)
 }
 
 // loggingHandler logs time spent to access each request/what page was requested.
